@@ -50,7 +50,7 @@ EOF
 # List every directory in our sitemap (except config). This makes up our sitemap since Arise is built to use directory roots as page URLs
 find . -type d -not \( -path ./config -prune \) | while read fname; do
 page_index=$(realpath "$fname"'/index.md')
-
+        items=()
         if [ -e $page_index ]; then
                 get_page_metadata $page_index
 
@@ -58,7 +58,7 @@ page_index=$(realpath "$fname"'/index.md')
                         # Convert html's ISO8601 date to RSS's RFC-822. Fuck you RSS.
                         rss_date=$(date -d "$published_date" --rfc-822)
                         
-                        cat >> $rss <<EOF
+                        item=$(cat <<EOF
         <item>
         <title>$title</title>
         <dc:creator>$author</dc:creator>
@@ -67,9 +67,16 @@ page_index=$(realpath "$fname"'/index.md')
         <pubDate>$rss_date</pubDate>
         </item>
 EOF
+)
+                    items+=("$rss_date $item")
                 fi
                 clear_metadata
         fi
+done
+
+# Cut up and sort our items by pubDate, then append.
+printf "%s\n" "${items[@]}" | sort -r | cut -d' ' -f2- | while read -r item; do
+    echo "$item" >> $rss
 done
 
 # Close up the rss feed
