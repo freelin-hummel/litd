@@ -1,0 +1,54 @@
+/*
+ * Theme token definitions.
+ * Each [data-theme="..."] block overrides the same set of custom properties.
+ * Add a new block to register a new theme — no JS changes required.
+ */
+
+/* ── Dark Fantasy ───────────────────────────────────────────────── */
+[data-theme="dark-fantasy"] {
+  --color-bg:           #0d0d14;
+  --color-surface:      #13131f;
+  --color-border:       #2a2a40;
+  --color-accent:       #c9a227;
+  --color-accent-dim:   #8b5c1a;
+  --color-accent-2:     #8b5cf6;
+  --color-text:         #e2e2ef;
+  --color-muted:        #7c7c9e;
+  --color-hover:        #1e1e30;
+  --color-active:       #252538;
+  --color-active-text:  #c9a227;
+
+  --font-brand:         'Palatino Linotype', 'Book Antiqua', Georgia, serif;
+  --font-ui:            'Inter', 'Segoe UI', system-ui, sans-serif;
+
+  --logo-size:              20px;
+  --brand-letter-spacing:   1px;
+  --sidebar-item-h-margin:  6px;
+}
+
+/* ── LANCER ──────────────────────────────────────────────────────── */
+/*
+ * LANCER is a sci-fi mecha TTRPG with a terminal/mil-spec aesthetic:
+ * dark blue-grays, orange-amber primary accent, cyan secondary.
+ */
+[data-theme="lancer"] {
+  --color-bg:           #080c10;
+  --color-surface:      #0b1016;
+  --color-border:       #162230;
+  --color-accent:       #d97706;   /* amber-600 — LANCER orange */
+  --color-accent-dim:   #92400e;
+  --color-accent-2:     #22d3ee;   /* cyan-400 */
+  --color-text:         #c5d8e8;   /* pale blue-white terminal text */
+  --color-muted:        #3d5a73;
+  --color-hover:        #0e1822;
+  --color-active:       #122030;
+  --color-active-text:  #f59e0b;   /* amber-400, slightly brighter when active */
+
+  --font-brand:         'Share Tech Mono', 'JetBrains Mono', 'Fira Code',
+                        'Courier New', monospace;
+  --font-ui:            'Share Tech', 'Inter', 'Segoe UI', system-ui, sans-serif;
+
+  --logo-size:              18px;
+  --brand-letter-spacing:   2.5px;
+  --sidebar-item-h-margin:  6px;
+}

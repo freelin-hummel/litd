@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { Doc } from '@blocksuite/store';
 import type { AffineEditorContainer } from '@blocksuite/presets';
+import { Zap } from 'lucide-react';
 
 interface EditorProps {
   doc: Doc | null;
@@ -37,8 +38,10 @@ export function Editor({ doc }: EditorProps) {
     return (
       <div className="editor-empty">
         <div className="editor-empty-content">
-          <span className="editor-empty-icon">⚔️</span>
-          <h2>Select a document to begin your adventure</h2>
+          <span className="editor-empty-icon" aria-hidden="true">
+            <Zap size={48} strokeWidth={1.5} />
+          </span>
+          <h2>Select a document to begin</h2>
           <p>Choose an entry from the sidebar, or create a new one.</p>
         </div>
       </div>

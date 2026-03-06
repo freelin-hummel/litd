@@ -15,7 +15,6 @@ export interface Category {
   label: string;
   /** Singular label used in "New <X>" button text */
   newLabel: string;
-  icon: string;
   docIds: string[];
 }
 
@@ -25,18 +24,21 @@ export interface WorldStore {
 }
 
 const INITIAL_DOCS: Record<CategoryId, { title: string }[]> = {
-  worlds: [{ title: 'Aethermoor — Campaign Overview' }],
+  worlds: [{ title: 'Karrakis Trade Baronies — Campaign Overview' }],
   locations: [
-    { title: 'The Shattered Citadel' },
-    { title: 'Duskwood Forest' },
+    { title: 'Cradle' },
+    { title: 'Cornucopia Station' },
   ],
   factions: [
-    { title: 'The Iron Compact' },
-    { title: 'Sisterhood of the Silver Flame' },
+    { title: 'Harrison Armory' },
+    { title: 'IPS-Northstar' },
   ],
-  characters: [{ title: 'Voryn Ashcloak (BBEG)' }, { title: 'Lira the Wayfarer (PC)' }],
-  lore: [{ title: 'The Sundering War' }],
-  bestiary: [{ title: 'Voidwyrm' }],
+  characters: [
+    { title: 'Navarro (PC — Call Sign: PILGRIM)' },
+    { title: 'Director Chen (NPC)' },
+  ],
+  lore: [{ title: 'The Deimos Event' }],
+  bestiary: [{ title: 'Ultra — Horus Goblin' }],
 };
 
 export function initWorldStore(): WorldStore {
@@ -45,12 +47,12 @@ export function initWorldStore(): WorldStore {
   collection.meta.initialize();
 
   const categories: Category[] = [
-    { id: 'worlds',     label: 'Worlds',        newLabel: 'World',      icon: '🌍', docIds: [] },
-    { id: 'locations',  label: 'Locations',     newLabel: 'Location',   icon: '📍', docIds: [] },
-    { id: 'factions',   label: 'Factions',      newLabel: 'Faction',    icon: '⚔️',  docIds: [] },
-    { id: 'characters', label: 'Characters',    newLabel: 'Character',  icon: '👤', docIds: [] },
-    { id: 'lore',       label: 'Lore & History',newLabel: 'Lore Entry', icon: '📜', docIds: [] },
-    { id: 'bestiary',   label: 'Bestiary',      newLabel: 'Entry',      icon: '🐉', docIds: [] },
+    { id: 'worlds',     label: 'Worlds',        newLabel: 'World',      docIds: [] },
+    { id: 'locations',  label: 'Locations',     newLabel: 'Location',   docIds: [] },
+    { id: 'factions',   label: 'Factions',      newLabel: 'Faction',    docIds: [] },
+    { id: 'characters', label: 'Characters',    newLabel: 'Character',  docIds: [] },
+    { id: 'lore',       label: 'Lore & History',newLabel: 'Lore Entry', docIds: [] },
+    { id: 'bestiary',   label: 'Bestiary',      newLabel: 'Entry',      docIds: [] },
   ];
 
   for (const category of categories) {

@@ -1,27 +1,12 @@
 /* ── Reset & base ─────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-:root {
-  --color-bg:        #0d0d14;
-  --color-surface:   #13131f;
-  --color-border:    #2a2a40;
-  --color-accent:    #c9a227;
-  --color-accent-2:  #8b5cf6;
-  --color-text:      #e2e2ef;
-  --color-muted:     #7c7c9e;
-  --color-hover:     #1e1e30;
-  --color-active:    #252538;
-  --sidebar-width:   260px;
-  --font-sans:       'Inter', 'Segoe UI', system-ui, sans-serif;
-  --font-fantasy:    'Palatino Linotype', 'Book Antiqua', Georgia, serif;
-}
-
 html, body, #root { height: 100%; }
 
 body {
   background: var(--color-bg);
   color: var(--color-text);
-  font-family: var(--font-sans);
+  font-family: var(--font-ui);
   line-height: 1.5;
 }
 
@@ -34,8 +19,8 @@ body {
 
 /* ── Sidebar ──────────────────────────────────────────────────── */
 .sidebar {
-  width: var(--sidebar-width);
-  min-width: var(--sidebar-width);
+  width: 260px;
+  min-width: 260px;
   background: var(--color-surface);
   border-right: 1px solid var(--color-border);
   display: flex;
@@ -47,28 +32,36 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 16px 16px 12px;
+  padding: 14px 14px 10px;
   border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
 }
 
-.sidebar-logo { font-size: 20px; }
+.sidebar-logo {
+  color: var(--color-accent);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
 
 .sidebar-title {
-  font-family: var(--font-fantasy);
-  font-size: 18px;
+  font-family: var(--font-brand);
+  font-size: 17px;
   font-weight: 700;
   color: var(--color-accent);
-  letter-spacing: 1px;
+  letter-spacing: var(--brand-letter-spacing);
+  flex-shrink: 0;
 }
 
 .sidebar-subtitle {
-  font-size: 10px;
+  font-family: var(--font-ui);
+  font-size: 9px;
   color: var(--color-muted);
   text-transform: uppercase;
   letter-spacing: 1.5px;
-  margin-left: 2px;
   align-self: flex-end;
   padding-bottom: 2px;
+  flex-shrink: 0;
 }
 
 .sidebar-nav {
@@ -79,18 +72,60 @@ body {
   scrollbar-color: var(--color-border) transparent;
 }
 
-.sidebar-category { }
+/* ── Sidebar footer / theme switcher ──────────────────────────── */
+.sidebar-footer {
+  flex-shrink: 0;
+  border-top: 1px solid var(--color-border);
+  padding: 8px 10px;
+}
 
+.sidebar-theme-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1px solid var(--color-border);
+  color: var(--color-muted);
+  cursor: pointer;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.sidebar-theme-btn:hover {
+  color: var(--color-accent);
+  border-color: var(--color-accent-dim);
+  background: var(--color-hover);
+}
+
+.sidebar-theme-current {
+  color: var(--color-text);
+  font-weight: 600;
+}
+.sidebar-theme-arrow {
+  color: var(--color-muted);
+  margin: 0 1px;
+}
+.sidebar-theme-next {
+  color: var(--color-accent);
+}
+
+/* ── Category headers ─────────────────────────────────────────── */
 .sidebar-category-header {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
+  gap: 7px;
+  padding: 6px 10px;
   background: none;
   border: none;
   color: var(--color-muted);
-  font-size: 11px;
+  font-family: var(--font-ui);
+  font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 1.2px;
@@ -101,25 +136,34 @@ body {
   color: var(--color-text);
   background: var(--color-hover);
 }
+.sidebar-category-header svg { flex-shrink: 0; }
 
-.sidebar-category-icon { font-size: 13px; }
 .sidebar-category-label { flex: 1; text-align: left; }
-.sidebar-category-chevron { font-size: 10px; opacity: 0.6; }
 
+.sidebar-category-chevron {
+  color: var(--color-muted);
+  opacity: 0.6;
+  transition: transform 0.15s;
+  flex-shrink: 0;
+}
+.sidebar-category-chevron.open { transform: rotate(90deg); }
+
+/* ── Doc list ─────────────────────────────────────────────────── */
 .sidebar-doc-list {
   list-style: none;
   padding: 0 0 4px 0;
 }
 
 .sidebar-doc-item {
-  width: 100%;
+  width: calc(100% - calc(var(--sidebar-item-h-margin) * 2));
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 12px 5px 28px;
+  padding: 5px 10px 5px 26px;
   background: none;
   border: none;
   color: var(--color-text);
+  font-family: var(--font-ui);
   font-size: 13px;
   cursor: pointer;
   text-align: left;
@@ -128,29 +172,33 @@ body {
   text-overflow: ellipsis;
   transition: background 0.12s, color 0.12s;
   border-radius: 4px;
-  margin: 0 6px;
-  width: calc(100% - 12px);
+  margin: 0 var(--sidebar-item-h-margin);
 }
 .sidebar-doc-item:hover { background: var(--color-hover); }
 .sidebar-doc-item.active {
   background: var(--color-active);
-  color: var(--color-accent);
+  color: var(--color-active-text);
 }
+.sidebar-doc-item svg { flex-shrink: 0; opacity: 0.45; }
+.sidebar-doc-item.active svg { opacity: 0.9; }
 
-.sidebar-doc-icon { font-size: 11px; opacity: 0.5; flex-shrink: 0; }
 .sidebar-doc-title { overflow: hidden; text-overflow: ellipsis; }
 
 .sidebar-add-btn {
-  width: calc(100% - 12px);
-  margin: 2px 6px;
-  padding: 4px 12px 4px 28px;
+  width: calc(100% - calc(var(--sidebar-item-h-margin) * 2));
+  margin: 1px var(--sidebar-item-h-margin);
+  padding: 4px 10px 4px 26px;
   background: none;
   border: none;
   color: var(--color-muted);
+  font-family: var(--font-ui);
   font-size: 12px;
   cursor: pointer;
   text-align: left;
   border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
   transition: color 0.12s, background 0.12s;
 }
 .sidebar-add-btn:hover { color: var(--color-accent); background: var(--color-hover); }
@@ -162,6 +210,7 @@ body {
   border: 1px solid var(--color-accent);
   border-radius: 4px;
   color: var(--color-text);
+  font-family: var(--font-ui);
   padding: 4px 8px;
   font-size: 13px;
   outline: none;
@@ -183,7 +232,6 @@ body {
   height: 100%;
 }
 
-/* Make BlockSuite editor fill the space and use our background */
 .editor-host affine-editor-container,
 .editor-host page-editor {
   height: 100%;
@@ -204,10 +252,15 @@ body {
   color: var(--color-muted);
 }
 
-.editor-empty-icon { font-size: 48px; display: block; margin-bottom: 16px; }
+.editor-empty-icon {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+  color: var(--color-accent-dim);
+}
 
 .editor-empty-content h2 {
-  font-family: var(--font-fantasy);
+  font-family: var(--font-brand);
   font-size: 20px;
   color: var(--color-text);
   margin-bottom: 8px;

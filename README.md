@@ -6,15 +6,22 @@ A collaborative tabletop RPG worldbuilding application powered by [BlockSuite](h
 
 - **Rich document editing** via BlockSuite's `AffineEditorContainer` (supports paragraphs, headings, lists, code blocks, tables, and more)
 - **TTRPG-organised sidebar** with six worldbuilding categories:
-  - 🌍 Worlds
-  - 📍 Locations
-  - ⚔️ Factions
-  - 👤 Characters
-  - 📜 Lore & History
-  - 🐉 Bestiary
+  - Worlds · Locations · Factions · Characters · Lore & History · Bestiary
 - **Create new documents** in any category with a single click
 - **CRDT-backed data model** (Yjs via BlockSuite) — ready for real-time multi-user collaboration
-- Dark fantasy-themed UI
+- **Two built-in themes** with an instant switcher in the sidebar footer
+- **Lucide icons** throughout — no emoji
+
+## Themes
+
+| Theme | Description |
+|-------|-------------|
+| **LANCER** *(default)* | Sci-fi mecha aesthetic — amber/cyan accents, monospace terminal fonts, deep blue-black backgrounds |
+| **Dark Fantasy** | High-fantasy aesthetic — gold accents, serif brand font, deep purple-black backgrounds |
+
+Adding a new theme requires only two steps:
+1. Add a `[data-theme="my-theme"]` block to `src/themes/themes.css` overriding the CSS variable tokens
+2. Add a `{ id, label, shortLabel }` entry to the `THEMES` array in `src/themes/index.ts`
 
 ## Getting Started
 
@@ -31,6 +38,7 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 |-------|-----------|
 | Editor | [BlockSuite](https://blocksuite.io/) `@blocksuite/presets` + `@blocksuite/blocks` |
 | Data / CRDT | `@blocksuite/store` + Yjs |
+| Icons | [lucide-react](https://lucide.dev/) |
 | UI framework | React 18 + TypeScript |
 | Build tool | Vite 5 |
 
