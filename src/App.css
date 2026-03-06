@@ -226,6 +226,58 @@ body {
   background: var(--color-bg);
 }
 
+/* ── Editor toolbar ───────────────────────────────────────────── */
+.editor-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.editor-toolbar-title {
+  flex: 1;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--color-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.editor-mode-toggle {
+  display: flex;
+  gap: 2px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 2px;
+  flex-shrink: 0;
+}
+
+.editor-mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: var(--color-muted);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.12s, background 0.12s;
+}
+.editor-mode-btn:hover { color: var(--color-text); background: var(--color-hover); }
+.editor-mode-btn.active {
+  background: var(--color-active);
+  color: var(--color-active-text);
+}
+
+/* ── Editor host ──────────────────────────────────────────────── */
 .editor-host {
   flex: 1;
   overflow: auto;

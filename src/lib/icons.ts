@@ -3,10 +3,12 @@
  * Update this file to change category icons without touching component logic.
  */
 import {
+  AlignLeft,
   BookOpen,
   ChevronRight,
   FileText,
   Globe,
+  Map,
   MapPin,
   Plus,
   Shield,
@@ -25,5 +27,11 @@ export const CATEGORY_ICONS: Record<CategoryId, LucideIcon> = {
   lore:       BookOpen,
   bestiary:   Skull,
 };
+
+/** Page-editor mode icon (structured document / text) */
+export const PageModeIcon = AlignLeft;
+
+/** Edgeless-editor mode icon (canvas / map) */
+export const CanvasModeIcon = Map;
 
 export { ChevronRight, FileText, Plus, Zap };
