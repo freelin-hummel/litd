@@ -18,7 +18,7 @@ import './App.css';
 
 const store: WorldStore = initWorldStore();
 
-/** Default editor mode for newly created document pages. */
+/** Default editor mode for newly created pages. */
 const DEFAULT_DOCUMENT_MODE: EditorMode = 'document';
 
 function App() {

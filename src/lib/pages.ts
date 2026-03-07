@@ -16,6 +16,13 @@ interface PageModeDetails {
 }
 
 export interface PageMetadata extends WorldDoc {
+  categoryIds: string[];
+  sortIndex: number | null;
+  tags: string[];
+  pinned: boolean;
+  customFields: Record<string, unknown>;
+  assetIds: string[];
+  grouping: Record<string, string[]>;
   modeLabel: string;
   modeDescription: string;
   sidebarMeta: string;
@@ -25,13 +32,13 @@ export interface PageMetadata extends WorldDoc {
 export const PAGE_MODE_DETAILS: Record<EditorMode, PageModeDetails> = {
   document: {
     label: 'Document',
-    description: 'Structured block editor view over the shared page model.',
+    description: 'Structured page editor view over the shared workspace model.',
     sidebarMeta: 'Markdown',
     serializationFormat: 'markdown',
   },
   canvas: {
     label: 'Canvas',
-    description: 'Spatial canvas view over the shared page model.',
+    description: 'Spatial canvas view over the shared workspace model.',
     sidebarMeta: 'Canvas',
     serializationFormat: 'canvas',
   },
@@ -39,9 +46,19 @@ export const PAGE_MODE_DETAILS: Record<EditorMode, PageModeDetails> = {
 
 function toPageMetadata(doc: WorldDoc): PageMetadata {
   const details = PAGE_MODE_DETAILS[doc.mode];
+  const canonicalPage = doc.page.model.page;
 
   return {
     ...doc,
+    categoryIds: [...canonicalPage.categoryIds],
+    sortIndex: canonicalPage.sortIndex,
+    tags: [...canonicalPage.metadata.tags],
+    pinned: canonicalPage.metadata.pinned,
+    customFields: { ...canonicalPage.metadata.customFields },
+    assetIds: [...canonicalPage.metadata.assetIds],
+    grouping: Object.fromEntries(
+      Object.entries(canonicalPage.metadata.grouping).map(([key, values]) => [key, [...values]]),
+    ),
     modeLabel: details.label,
     modeDescription: details.description,
     sidebarMeta: details.sidebarMeta,

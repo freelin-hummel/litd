@@ -18,6 +18,40 @@ export interface DocumentPage {
 export type BlockId = string;
 export type EntityId = string;
 export type RelationId = string;
+export type AssetId = string;
+
+export interface OrganizationMetadata {
+  tags: string[];
+  pinned: boolean;
+  customFields: Record<string, unknown>;
+  assetIds: AssetId[];
+  grouping: Record<string, string[]>;
+}
+
+export interface AssetReference {
+  assetId: AssetId;
+  renderMode: 'link' | 'embed' | 'page' | 'region';
+  metadata: Record<string, unknown>;
+}
+
+export interface BlockMetadata {
+  tags: string[];
+  pinned: boolean;
+  customFields: Record<string, unknown>;
+  assetRefs: AssetReference[];
+  mechanics: Record<string, unknown>;
+}
+
+export interface AssetRecord {
+  id: AssetId;
+  type: 'file' | 'image' | 'pdf';
+  title: string;
+  mimeType: string | null;
+  tags: string[];
+  metadata: Record<string, unknown>;
+}
+
+export const PAGE_CONTENT_SCHEMA_VERSION = 1;
 
 /**
  * Canonical page metadata shared by every renderer.
@@ -29,6 +63,7 @@ export type RelationId = string;
 export interface PageRecord extends DocumentPage {
   categoryIds: string[];
   sortIndex: number | null;
+  metadata: OrganizationMetadata;
 }
 
 /**
@@ -41,6 +76,7 @@ export interface BlockRecord {
   props: Record<string, unknown>;
   childIds: BlockId[];
   entityIds: EntityId[];
+  metadata: BlockMetadata;
 }
 
 /**
@@ -69,13 +105,21 @@ export interface RelationRecord {
  * The current app still renders document content via Lexical and canvas content
  * via tldraw, but both views should hang off this shared page/block/entity/
  * relation model so future schema evolution stays renderer-agnostic.
+ *
+ * Serialization rules:
+ * - page/block/entity/relation/asset ids are stable string identifiers
+ * - persisted records are normalized through normalizePageContentModel()
+ * - renderers may cache derived state, but this model is the canonical source
+ *   of truth that should be stored and migrated over time
  */
 export interface PageContentModel {
+  schemaVersion: number;
   page: PageRecord;
   blocks: Record<BlockId, BlockRecord>;
   rootBlockIds: BlockId[];
   entities: Record<EntityId, EntityRecord>;
   relations: Record<RelationId, RelationRecord>;
+  assets: Record<AssetId, AssetRecord>;
 }
 
 interface PageContentModelOptions {
@@ -86,6 +130,73 @@ interface PageContentModelOptions {
 function normalizeStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((entry): entry is string => typeof entry === 'string');
+}
+
+function normalizeObjectRecord(value: unknown): Record<string, unknown> {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+
+  return { ...(value as Record<string, unknown>) };
+}
+
+function normalizeGroupingRecord(value: unknown): Record<string, string[]> {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, entry]) => [key, normalizeStringArray(entry)]),
+  );
+}
+
+function normalizeAssetReference(value: unknown): AssetReference | null {
+  if (value === null || typeof value !== 'object') return null;
+  const record = value as Record<string, unknown>;
+  const renderMode = record.renderMode;
+
+  return typeof record.assetId === 'string' && record.assetId
+    ? {
+        assetId: record.assetId,
+        renderMode:
+          renderMode === 'embed' || renderMode === 'page' || renderMode === 'region'
+            ? renderMode
+            : 'link',
+        metadata: normalizeObjectRecord(record.metadata),
+      }
+    : null;
+}
+
+function normalizeAssetReferenceArray(value: unknown): AssetReference[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map((entry) => normalizeAssetReference(entry))
+    .filter((entry): entry is AssetReference => entry !== null);
+}
+
+function normalizeOrganizationMetadata(value: unknown): OrganizationMetadata {
+  const record = normalizeObjectRecord(value);
+
+  return {
+    tags: normalizeStringArray(record.tags),
+    pinned: record.pinned === true,
+    customFields: normalizeObjectRecord(record.customFields),
+    assetIds: normalizeStringArray(record.assetIds),
+    grouping: normalizeGroupingRecord(record.grouping),
+  };
+}
+
+function normalizeBlockMetadata(value: unknown): BlockMetadata {
+  const record = normalizeObjectRecord(value);
+
+  return {
+    tags: normalizeStringArray(record.tags),
+    pinned: record.pinned === true,
+    customFields: normalizeObjectRecord(record.customFields),
+    assetRefs: normalizeAssetReferenceArray(record.assetRefs),
+    mechanics: normalizeObjectRecord(record.mechanics),
+  };
 }
 
 function normalizeRecord<T extends { id: string }>(
@@ -114,11 +225,10 @@ function normalizeBlockRecord(id: string, value: unknown): BlockRecord | null {
     id,
     type: typeof record.type === 'string' && record.type.trim() ? record.type : 'paragraph',
     props:
-      record.props !== null && typeof record.props === 'object' && !Array.isArray(record.props)
-        ? { ...(record.props as Record<string, unknown>) }
-        : {},
+      normalizeObjectRecord(record.props),
     childIds: normalizeStringArray(record.childIds),
     entityIds: normalizeStringArray(record.entityIds),
+    metadata: normalizeBlockMetadata(record.metadata),
   };
 }
 
@@ -129,12 +239,7 @@ function normalizeEntityRecord(id: string, value: unknown): EntityRecord | null 
   return {
     id,
     type: typeof record.type === 'string' && record.type.trim() ? record.type : 'entity',
-    metadata:
-      record.metadata !== null &&
-      typeof record.metadata === 'object' &&
-      !Array.isArray(record.metadata)
-        ? { ...(record.metadata as Record<string, unknown>) }
-        : {},
+    metadata: normalizeObjectRecord(record.metadata),
   };
 }
 
@@ -148,11 +253,22 @@ function normalizeRelationRecord(id: string, value: unknown): RelationRecord | n
     targetId: typeof record.targetId === 'string' ? record.targetId : '',
     type: typeof record.type === 'string' && record.type.trim() ? record.type : 'reference',
     metadata:
-      record.metadata !== null &&
-      typeof record.metadata === 'object' &&
-      !Array.isArray(record.metadata)
-        ? { ...(record.metadata as Record<string, unknown>) }
-        : {},
+      normalizeObjectRecord(record.metadata),
+  };
+}
+
+function normalizeAssetRecord(id: string, value: unknown): AssetRecord | null {
+  if (value === null || typeof value !== 'object') return null;
+  const record = value as Record<string, unknown>;
+  const type = record.type;
+
+  return {
+    id,
+    type: type === 'image' || type === 'pdf' ? type : 'file',
+    title: typeof record.title === 'string' && record.title.trim() ? record.title : id,
+    mimeType: typeof record.mimeType === 'string' && record.mimeType.trim() ? record.mimeType : null,
+    tags: normalizeStringArray(record.tags),
+    metadata: normalizeObjectRecord(record.metadata),
   };
 }
 
@@ -161,15 +277,24 @@ export function createPageContentModel(
   options: PageContentModelOptions = {},
 ): PageContentModel {
   return {
+    schemaVersion: PAGE_CONTENT_SCHEMA_VERSION,
     page: {
       ...page,
       categoryIds: [...(options.categoryIds ?? [])],
       sortIndex: options.sortIndex ?? null,
+      metadata: {
+        tags: [],
+        pinned: false,
+        customFields: {},
+        assetIds: [],
+        grouping: {},
+      },
     },
     blocks: {},
     rootBlockIds: [],
     entities: {},
     relations: {},
+    assets: {},
   };
 }
 
@@ -189,6 +314,10 @@ export function normalizePageContentModel(
       : {};
 
   return {
+    schemaVersion:
+      typeof record.schemaVersion === 'number' && Number.isFinite(record.schemaVersion)
+        ? record.schemaVersion
+        : PAGE_CONTENT_SCHEMA_VERSION,
     page: {
       id: fallbackPage.id,
       title: fallbackPage.title,
@@ -200,10 +329,12 @@ export function normalizePageContentModel(
         typeof storedPage.sortIndex === 'number'
           ? storedPage.sortIndex
           : options.sortIndex ?? null,
+      metadata: normalizeOrganizationMetadata(storedPage.metadata),
     },
     blocks: normalizeRecord(record.blocks, normalizeBlockRecord),
     rootBlockIds: normalizeStringArray(record.rootBlockIds),
     entities: normalizeRecord(record.entities, normalizeEntityRecord),
     relations: normalizeRecord(record.relations, normalizeRelationRecord),
+    assets: normalizeRecord(record.assets, normalizeAssetRecord),
   };
 }

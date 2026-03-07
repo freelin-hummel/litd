@@ -51,7 +51,7 @@ function CanvasEditor({ doc, theme }: { doc: WorldDoc; theme: ThemeId }) {
 
   return (
     <div className="editor-canvas-shell">
-      <div className="editor-canvas-badge">Canvas mode</div>
+      <div className="editor-canvas-badge">Canvas view</div>
       <Tldraw
         persistenceKey={`litd:tldraw:${doc.id}`}
         components={TLDRAW_COMPONENTS}
@@ -72,8 +72,8 @@ export function Editor({ doc, theme }: EditorProps) {
           <span className="editor-empty-icon" aria-hidden="true">
             <Zap size={48} strokeWidth={1.5} />
           </span>
-          <h2>Select a document to begin</h2>
-          <p>Choose an entry from the sidebar, or create a new one.</p>
+          <h2>Select a page to begin</h2>
+          <p>Choose a page from the sidebar, or create a new one.</p>
         </div>
       </div>
     );

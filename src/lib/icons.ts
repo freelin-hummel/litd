@@ -52,10 +52,10 @@ export function getCategoryIcon(iconName: string | null | undefined): LucideIcon
   return isCategoryIconName(iconName) ? CATEGORY_ICONS[iconName] : Folder;
 }
 
-/** Document-editor mode icon (structured document / text) */
+/** Document-editor mode icon (structured page / text) */
 export const DocumentModeIcon = AlignLeft;
 
-/** Edgeless-editor mode icon (canvas / map) */
+/** Canvas-editor mode icon */
 export const CanvasModeIcon = Map;
 
 export { ChevronRight, FileText, Folder, Pencil, Plus, Trash2, Zap };

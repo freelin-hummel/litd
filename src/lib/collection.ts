@@ -12,13 +12,18 @@ import {
   type CategoryIconName,
 } from './icons';
 
-/** Category IDs are arbitrary strings; built-in categories use well-known values. */
+/** Category IDs are arbitrary strings; seeded collections use well-known values. */
 export type CategoryId = string;
 
 export type { EditorMode } from './document-pages';
 
 export interface CategoryMetadata {
   icon: CategoryIconName;
+  tags: string[];
+  pinned: boolean;
+  customFields: Record<string, unknown>;
+  assetIds: string[];
+  grouping: Record<string, string[]>;
 }
 
 export interface Category {
@@ -52,62 +57,68 @@ interface SeedCategoryDefinition {
   docs: { title: string; mode?: EditorMode }[];
 }
 
-const DEFAULT_CATEGORY_SEEDS: SeedCategoryDefinition[] = [
+function createDefaultCategoryMetadata(
+  icon: CategoryIconName = DEFAULT_CATEGORY_ICON_NAME,
+): CategoryMetadata {
+  return {
+    icon,
+    tags: [],
+    pinned: false,
+    customFields: {},
+    assetIds: [],
+    grouping: {},
+  };
+}
+
+const DEFAULT_WORKSPACE_CATEGORY_SEEDS: SeedCategoryDefinition[] = [
   {
-    id: 'worlds',
-    label: 'Worlds',
-    newLabel: 'World',
-    metadata: { icon: 'globe' },
-    docs: [{ title: 'Karrakis Trade Baronies — Campaign Overview' }],
+    id: 'notes',
+    label: 'Notes',
+    newLabel: 'Note',
+    metadata: createDefaultCategoryMetadata('book-open'),
+    docs: [{ title: 'Workspace Overview' }],
   },
   {
-    id: 'locations',
-    label: 'Locations',
-    newLabel: 'Location',
-    metadata: { icon: 'map-pin' },
+    id: 'research',
+    label: 'Research',
+    newLabel: 'Research Note',
+    metadata: createDefaultCategoryMetadata('globe'),
     docs: [
-      { title: 'Cradle' },
-      { title: 'Cornucopia Station' },
+      { title: 'Source Digest' },
+      { title: 'Reference Links' },
     ],
   },
   {
-    id: 'factions',
-    label: 'Factions',
-    newLabel: 'Faction',
-    metadata: { icon: 'shield' },
+    id: 'people',
+    label: 'People',
+    newLabel: 'Profile',
+    metadata: createDefaultCategoryMetadata('user'),
     docs: [
-      { title: 'Harrison Armory' },
-      { title: 'IPS-Northstar' },
+      { title: 'Design Partner Profile' },
+      { title: 'Stakeholder Notes' },
     ],
   },
   {
-    id: 'characters',
-    label: 'Characters',
-    newLabel: 'Character',
-    metadata: { icon: 'user' },
+    id: 'spaces',
+    label: 'Spaces',
+    newLabel: 'Space',
+    metadata: createDefaultCategoryMetadata('map-pin'),
     docs: [
-      { title: 'Navarro (PC — Call Sign: PILGRIM)' },
-      { title: 'Director Chen (NPC)' },
+      { title: 'Studio Layout' },
+      { title: 'Field Research Site' },
     ],
   },
   {
-    id: 'lore',
-    label: 'Lore & History',
-    newLabel: 'Lore Entry',
-    metadata: { icon: 'book-open' },
-    docs: [{ title: 'The Deimos Event' }],
-  },
-  {
-    id: 'bestiary',
-    label: 'Bestiary',
-    newLabel: 'Entry',
-    metadata: { icon: 'skull' },
-    docs: [{ title: 'Ultra — Horus Goblin', mode: 'canvas' }],
+    id: 'projects',
+    label: 'Projects',
+    newLabel: 'Project',
+    metadata: createDefaultCategoryMetadata('folder'),
+    docs: [{ title: 'Roadmap Board', mode: 'canvas' }],
   },
 ];
 
-const DEFAULT_CATEGORY_SEEDS_BY_ID = new Map(
-  DEFAULT_CATEGORY_SEEDS.map((seed) => [seed.id, seed]),
+const DEFAULT_WORKSPACE_CATEGORY_SEEDS_BY_ID = new Map(
+  DEFAULT_WORKSPACE_CATEGORY_SEEDS.map((seed) => [seed.id, seed]),
 );
 
 /** localStorage keys for persisting metadata. */
@@ -122,7 +133,7 @@ function generateDocId(): string {
   return `doc-${crypto.randomUUID()}`;
 }
 
-/** Persist the category list, including presentation metadata, to localStorage. */
+/** Persist the collection list, including presentation metadata, to localStorage. */
 export function saveCategories(categories: Category[]): void {
   try {
     localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(categories));
@@ -193,7 +204,7 @@ function isValidDocs(value: unknown): value is StoredDocs {
   });
 }
 
-/** Derive a reasonable singular form of a category label for the "New <X>" button. */
+/** Derive a reasonable singular form of a collection label for the "New <X>" button. */
 function deriveSingular(label: string): string {
   const t = label.trim();
   if (t.toLowerCase().endsWith('ies') && t.length > 3) return t.slice(0, -3) + 'y';
@@ -202,7 +213,7 @@ function deriveSingular(label: string): string {
   return t;
 }
 
-/** Generate a unique ID for a user-created category. */
+/** Generate a unique ID for a user-created collection. */
 let categoryIdSequence = 0;
 function generateCategoryId(): string {
   return `cat-${Date.now().toString(36)}-${(++categoryIdSequence).toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
@@ -210,20 +221,46 @@ function generateCategoryId(): string {
 
 function normalizeCategoryMetadata(
   value: unknown,
-  fallback: CategoryMetadata = { icon: DEFAULT_CATEGORY_ICON_NAME },
+  fallback: CategoryMetadata = createDefaultCategoryMetadata(),
 ): CategoryMetadata {
-  if (value === null || typeof value !== 'object') {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     return { ...fallback };
   }
 
   const record = value as Record<string, unknown>;
   return {
     icon: isCategoryIconName(record.icon) ? record.icon : fallback.icon,
+    tags: Array.isArray(record.tags)
+      ? record.tags.filter((entry): entry is string => typeof entry === 'string')
+      : [...fallback.tags],
+    pinned: record.pinned === true ? true : fallback.pinned,
+    customFields:
+      record.customFields !== null &&
+      typeof record.customFields === 'object' &&
+      !Array.isArray(record.customFields)
+        ? { ...(record.customFields as Record<string, unknown>) }
+        : { ...fallback.customFields },
+    assetIds: Array.isArray(record.assetIds)
+      ? record.assetIds.filter((entry): entry is string => typeof entry === 'string')
+      : [...fallback.assetIds],
+    grouping:
+      record.grouping !== null &&
+      typeof record.grouping === 'object' &&
+      !Array.isArray(record.grouping)
+        ? Object.fromEntries(
+            Object.entries(record.grouping).map(([key, entry]) => [
+              key,
+              Array.isArray(entry)
+                ? entry.filter((value): value is string => typeof value === 'string')
+                : [],
+            ]),
+          )
+        : { ...fallback.grouping },
   };
 }
 
 function normalizeCategory(value: Category): Category {
-  const seed = DEFAULT_CATEGORY_SEEDS_BY_ID.get(value.id);
+  const seed = DEFAULT_WORKSPACE_CATEGORY_SEEDS_BY_ID.get(value.id);
   const record = value as unknown as Record<string, unknown>;
 
   return {
@@ -235,7 +272,7 @@ function normalizeCategory(value: Category): Category {
   };
 }
 
-/** Load the category list from localStorage, or return null if not found. */
+/** Load the collection list from localStorage, or return null if not found. */
 function loadCategories(): Category[] | null {
   try {
     const raw = localStorage.getItem(CATEGORIES_STORAGE_KEY);
@@ -292,7 +329,7 @@ function syncStoredDocPage(store: WorldStore, docId: string): void {
 }
 
 function createSeedStore(): WorldStore {
-  const categories: Category[] = DEFAULT_CATEGORY_SEEDS.map((seed) => ({
+  const categories: Category[] = DEFAULT_WORKSPACE_CATEGORY_SEEDS.map((seed) => ({
     id: seed.id,
     label: seed.label,
     newLabel: seed.newLabel,
@@ -303,7 +340,7 @@ function createSeedStore(): WorldStore {
   const docs: StoredDocs = {};
 
   for (const category of categories) {
-    const defs = DEFAULT_CATEGORY_SEEDS_BY_ID.get(category.id)?.docs ?? [];
+    const defs = DEFAULT_WORKSPACE_CATEGORY_SEEDS_BY_ID.get(category.id)?.docs ?? [];
     for (const def of defs) {
       const id = generateDocId();
       docs[id] = {
@@ -471,13 +508,13 @@ export function releaseCollaborationSession(docId: string): void {
  */
 export function addCategory(store: WorldStore, label: string): Category {
   const trimmed = label.trim();
-  if (!trimmed) throw new Error('Category name cannot be empty.');
+  if (!trimmed) throw new Error('Collection name cannot be empty.');
   if (
     store.categories.some(
       (c) => c.label.toLowerCase() === trimmed.toLowerCase(),
     )
   ) {
-    throw new Error(`A category named "${trimmed}" already exists.`);
+    throw new Error(`A collection named "${trimmed}" already exists.`);
   }
   const id = generateCategoryId();
   const newLabel = deriveSingular(trimmed);
@@ -486,7 +523,7 @@ export function addCategory(store: WorldStore, label: string): Category {
     label: trimmed,
     newLabel,
     docIds: [],
-    metadata: { icon: DEFAULT_CATEGORY_ICON_NAME },
+    metadata: createDefaultCategoryMetadata(),
   };
   store.categories.push(category);
   saveCategories(store.categories);
@@ -494,7 +531,7 @@ export function addCategory(store: WorldStore, label: string): Category {
 }
 
 /**
- * Remove a category from the store.
+ * Remove a collection from the store.
  * Returns the doc IDs that were in the deleted category so the caller can
  * clear any active selection if needed.
  */
@@ -511,8 +548,8 @@ export function removeCategory(store: WorldStore, categoryId: string): string[] 
 }
 
 /**
- * Rename an existing category. Throws if the new name is empty or already
- * taken by another category (case-insensitive).
+ * Rename an existing collection. Throws if the new name is empty or already
+ * taken by another collection (case-insensitive).
  */
 export function renameCategory(
   store: WorldStore,
@@ -520,7 +557,7 @@ export function renameCategory(
   newLabel: string,
 ): void {
   const trimmed = newLabel.trim();
-  if (!trimmed) throw new Error('Category name cannot be empty.');
+  if (!trimmed) throw new Error('Collection name cannot be empty.');
   const category = store.categories.find((c) => c.id === categoryId);
   if (!category) return;
   if (
@@ -528,7 +565,7 @@ export function renameCategory(
       (c) => c.id !== categoryId && c.label.toLowerCase() === trimmed.toLowerCase(),
     )
   ) {
-    throw new Error(`A category named "${trimmed}" already exists.`);
+    throw new Error(`A collection named "${trimmed}" already exists.`);
   }
   category.label = trimmed;
   category.newLabel = deriveSingular(trimmed);

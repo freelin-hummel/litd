@@ -119,7 +119,7 @@ export function Sidebar({
       } catch (error) {
         setRenamingId(null);
         setRenamingLabel('');
-        openErrorDialog('Unable to rename category', error);
+        openErrorDialog('Unable to rename collection', error);
         return;
       }
     }
@@ -176,7 +176,7 @@ export function Sidebar({
       } catch (error) {
         setAddingCategory(false);
         setNewCategoryName('');
-        openErrorDialog('Unable to create category', error);
+        openErrorDialog('Unable to create collection', error);
         return;
       }
     }
@@ -197,8 +197,8 @@ export function Sidebar({
   const activeDialogDescription =
     dialogState?.kind === 'delete'
       ? dialogState.pageCount > 0
-        ? `This category contains ${dialogState.pageCount} page(s). The sidebar grouping will be removed, but the underlying pages remain stored locally.`
-        : 'This category will be removed from the sidebar.'
+        ? `This collection contains ${dialogState.pageCount} page(s). The sidebar grouping will be removed, but the underlying pages remain stored locally.`
+        : 'This collection will be removed from the sidebar.'
       : dialogState?.description ?? '';
 
   return (
@@ -209,7 +209,7 @@ export function Sidebar({
             <Zap size={18} />
           </span>
           <span className="sidebar-title">LITD</span>
-          <span className="sidebar-subtitle">Worldbuilder</span>
+          <span className="sidebar-subtitle">Workspace</span>
         </div>
         <nav className="sidebar-nav">
           {store.categories.map((category: Category) => {
@@ -236,7 +236,7 @@ export function Sidebar({
                         onChange={(event) => setRenamingLabel(event.target.value)}
                         onKeyDown={(event) => handleRenameKeyDown(event, category.id)}
                         onBlur={() => commitRename(category.id)}
-                        aria-label="Rename category"
+                        aria-label="Rename collection"
                       />
                     </div>
                   ) : (
@@ -266,22 +266,22 @@ export function Sidebar({
                             className="sidebar-category-action-btn"
                             variant="ghost"
                             size="sm"
-                            label={`Category actions for ${category.label}`}
+                             label={`Collection actions for ${category.label}`}
                           >
                             <Pencil size={11} aria-hidden="true" />
                           </IconButton>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onSelect={() => startRenaming(category.id, category.label)}>
-                            <Pencil size={12} aria-hidden="true" />
-                            Rename category
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem danger onSelect={() => requestDeleteCategory(category.id)}>
-                            <Trash2 size={12} aria-hidden="true" />
-                            Delete category
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
+                         <DropdownMenuContent align="end">
+                           <DropdownMenuItem onSelect={() => startRenaming(category.id, category.label)}>
+                              <Pencil size={12} aria-hidden="true" />
+                              Rename collection
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem danger onSelect={() => requestDeleteCategory(category.id)}>
+                              <Trash2 size={12} aria-hidden="true" />
+                              Delete collection
+                            </DropdownMenuItem>
+                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
                   )}
@@ -324,7 +324,7 @@ export function Sidebar({
                           variant="ghost"
                           size="sm"
                           onClick={() => startAddingDoc(category.id)}
-                          title={`Add to ${category.label}`}
+                           title={`Add a page to ${category.label}`}
                         >
                           <Plus size={11} aria-hidden="true" />
                           New {category.newLabel}
@@ -341,7 +341,7 @@ export function Sidebar({
               <Input
                 autoFocus
                 className="sidebar-input"
-                placeholder="Category name…"
+                placeholder="Collection name…"
                 value={newCategoryName}
                 onChange={(event) => setNewCategoryName(event.target.value)}
                 onKeyDown={handleNewCategoryKeyDown}
@@ -354,10 +354,10 @@ export function Sidebar({
               variant="outline"
               size="sm"
               onClick={startAddingCategory}
-              title="Add a new category"
+              title="Add a new collection"
             >
               <Plus size={11} aria-hidden="true" />
-              New Category
+              New Collection
             </Button>
           )}
         </nav>
@@ -370,8 +370,8 @@ export function Sidebar({
         }}
         title={activeDialogTitle}
         description={activeDialogDescription}
-        actionLabel={dialogState?.kind === 'delete' ? 'Delete category' : 'OK'}
-        cancelLabel={dialogState?.kind === 'delete' ? 'Keep category' : 'Dismiss'}
+        actionLabel={dialogState?.kind === 'delete' ? 'Delete collection' : 'OK'}
+        cancelLabel={dialogState?.kind === 'delete' ? 'Keep collection' : 'Dismiss'}
         onAction={() => {
           if (dialogState?.kind === 'delete') {
             confirmDeleteCategory();
