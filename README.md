@@ -1,10 +1,10 @@
 # LITD — Collaborative TTRPG Worldbuilder
 
-A collaborative tabletop RPG worldbuilding application with a replaceable document-editor boundary, currently powered by [TipTap](https://tiptap.dev/) and [tldraw](https://tldraw.dev/).
+A collaborative tabletop RPG worldbuilding application powered by [Lexical](https://lexical.dev/) and [tldraw](https://tldraw.dev/).
 
 ## Features
 
-- **Rich document editing** via TipTap with Yjs-backed collaborative document state
+- **Rich document editing** via Lexical with Yjs-backed collaborative document state
 - **Freeform canvas mode** via tldraw for maps, diagrams, and relationship boards
 - **TTRPG-organised sidebar** with six worldbuilding categories:
   - Worlds · Locations · Factions · Characters · Lore & History · Bestiary
@@ -44,14 +44,8 @@ Those tokens are used by:
 
 - the app shell styles in `src/App.css`
 - the shared primitives in `src/primitives/primitives.css`
-- TipTap document surfaces in `src/components/TipTapDocumentEditor.tsx` / `src/App.css`
+- Lexical document surfaces in `src/components/LexicalDocumentEditor.tsx` / `src/App.css`
 - tldraw theme overrides in `src/components/Editor.tsx` / `src/App.css`
-
-## Page/editor boundary
-
-`DocumentPage` in `src/lib/document-pages.ts` is the app-facing page contract used for page identity, title, and current mode. Sidebar selection and metadata persistence live in `src/lib/collection.ts`, so document mode and canvas mode continue to share the same page identity even though they render through different surfaces.
-
-Document-mode content now sits behind `DocumentEditorBoundary` in `src/lib/document-editor.ts`. The current `TIPTAP_DOCUMENT_EDITOR` implementation keeps TipTap/Yjs loading and cleanup in `src/components/TipTapDocumentEditor.tsx` and `src/lib/tiptap-document-store.ts`, which gives the Lexical migration a single internal replacement point instead of letting editor-specific assumptions spread across the app.
 
 Adding a new theme requires only two steps:
 1. Add a `[data-theme="my-theme"]` block to `src/themes/themes.css` mapping the flavor tokens
@@ -84,7 +78,7 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 | Layer | Technology |
 |-------|-----------|
-| Document editor | [TipTap](https://tiptap.dev/) + StarterKit + Collaboration |
+| Document editor | [Lexical](https://lexical.dev/) + Markdown + Yjs collaboration |
 | Canvas | [tldraw](https://tldraw.dev/) |
 | Data / CRDT | Yjs + `y-indexeddb` |
 | Icons | [lucide-react](https://lucide.dev/) |
@@ -93,17 +87,23 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 ## Adding Real-Time Collaboration
 
-TipTap's collaboration extension is built on top of [Yjs](https://github.com/yjs/yjs) CRDTs. To enable
-live multi-user sync for the current TipTap-backed document implementation, attach a Hocuspocus or
-Yjs provider to the Y.Doc returned by `getTipTapDocument(pageId)`:
+The Lexical document layer is backed by [Yjs](https://github.com/yjs/yjs) CRDTs and persists locally through
+`y-indexeddb`. To attach remote multi-user sync, reuse the `Y.Doc` returned by
+`getCollaborationSession(docId).doc`:
 
 ```ts
 import { HocuspocusProvider } from '@hocuspocus/provider';
-import { getTipTapDocument } from './src/lib/tiptap-document-store';
+import { getCollaborationSession } from './src/lib/collection';
+
+const { doc } = getCollaborationSession(docId);
 
 const provider = new HocuspocusProvider({
   url: 'wss://your-server.example.com',
   name: 'litd-room',
-  document: getTipTapDocument(pageId),
+  document: doc,
 });
 ```
+
+Document pages now also persist markdown snapshots in local document metadata for import/export and editor
+bootstrapping. Because Lexical uses a different Yjs schema than the previous TipTap editor, existing
+TipTap-specific IndexedDB payloads are not reused directly.

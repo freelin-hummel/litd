@@ -1,20 +1,34 @@
-import type { DocumentPage, EditorMode } from './document-pages';
+import type { CollaborationSession, DocumentPage } from './document';
+import {
+  createCollaborationSession,
+  createDocumentPage,
+  destroyCollaborationSession,
+  normalizeDocumentPage,
+} from './document';
 
 /** Category IDs are arbitrary strings; built-in categories use well-known values. */
 export type CategoryId = string;
+
+export type EditorMode = 'document' | 'canvas';
 
 export interface Category {
   id: string;
   label: string;
   /** Singular label used in "New <X>" button text */
   newLabel: string;
-  pageIds: string[];
+  docIds: string[];
 }
 
-/** App-level metadata store; editor implementations own page content separately. */
+export interface WorldDoc {
+  id: string;
+  title: string;
+  mode: EditorMode;
+  page: DocumentPage;
+}
+
 export interface WorldStore {
   categories: Category[];
-  pages: Record<string, DocumentPage>;
+  docs: Record<string, WorldDoc>;
 }
 
 const DEFAULT_DOC_MODE: EditorMode = 'document';
@@ -39,16 +53,17 @@ const INITIAL_DOCS: Record<string, { title: string; mode?: EditorMode }[]> = {
 
 /** localStorage keys for persisting metadata. */
 const CATEGORIES_STORAGE_KEY = 'litd:categories';
-const PAGES_STORAGE_KEY = 'litd:pages';
-const LEGACY_DOCS_STORAGE_KEY = 'litd:docs';
+const DOCS_STORAGE_KEY = 'litd:docs';
 
-type StoredPages = Record<string, DocumentPage>;
+type StoredDocs = Record<string, WorldDoc>;
+
+const collaborationSessionCache = new Map<string, CollaborationSession>();
 
 function generateDocId(): string {
   return `doc-${crypto.randomUUID()}`;
 }
 
-/** Persist the category list (pageIds only) to localStorage. */
+/** Persist the category list (docIds only) to localStorage. */
 export function saveCategories(categories: Category[]): void {
   try {
     localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(categories));
@@ -57,65 +72,60 @@ export function saveCategories(categories: Category[]): void {
   }
 }
 
-function savePages(pages: StoredPages): void {
+function saveDocs(docs: StoredDocs): void {
   try {
-    localStorage.setItem(PAGES_STORAGE_KEY, JSON.stringify(pages));
-    localStorage.removeItem(LEGACY_DOCS_STORAGE_KEY);
+    localStorage.setItem(DOCS_STORAGE_KEY, JSON.stringify(docs));
   } catch {
     // localStorage may be unavailable (e.g. private browsing quota exceeded)
   }
 }
 
-function normalizeCategories(value: unknown): Category[] | null {
-  if (!Array.isArray(value)) return null;
-  const categories: Category[] = [];
-
-  for (const item of value) {
-    if (item === null || typeof item !== 'object') return null;
-    const record = item as Record<string, unknown>;
-    const legacyDocIds = Array.isArray(record.docIds) ? record.docIds : null;
-    // If both fields exist, prefer the new pageIds shape and treat docIds as a
-    // legacy fallback only.
-    const pageIds = Array.isArray(record.pageIds) ? record.pageIds : legacyDocIds;
-
-    if (
-      typeof record.id !== 'string' ||
-      record.id === '' ||
-      typeof record.label !== 'string' ||
-      typeof record.newLabel !== 'string' ||
-      pageIds === null ||
-      !pageIds.every((id) => typeof id === 'string')
-    ) {
-      return null;
-    }
-
-    categories.push({
-      id: record.id,
-      label: record.label,
-      newLabel: record.newLabel,
-      pageIds,
-    });
-  }
-
-  return categories;
+/** Validate a parsed value is a well-formed Category[]. */
+function isValidCategories(value: unknown): value is Category[] {
+  if (!Array.isArray(value)) return false;
+  return value.every(
+    (item) =>
+      item !== null &&
+      typeof item === 'object' &&
+      typeof (item as Record<string, unknown>).id === 'string' &&
+      (item as Record<string, unknown>).id !== '' &&
+      typeof (item as Record<string, unknown>).label === 'string' &&
+      typeof (item as Record<string, unknown>).newLabel === 'string' &&
+      Array.isArray((item as Record<string, unknown>).docIds) &&
+      ((item as Record<string, unknown>).docIds as unknown[]).every(
+        (id) => typeof id === 'string',
+      ),
+  );
 }
 
 function isEditorMode(value: unknown): value is EditorMode {
   return value === 'document' || value === 'canvas';
 }
 
-function isValidPages(value: unknown): value is StoredPages {
+function isValidDocumentPage(value: unknown): boolean {
+  if (value === undefined) return true;
+  if (value === null || typeof value !== 'object') return false;
+
+  const page = value as Record<string, unknown>;
+  return (
+    (typeof page.markdown === 'string' || page.markdown === undefined) &&
+    (typeof page.updatedAt === 'string' || page.updatedAt === null || page.updatedAt === undefined)
+  );
+}
+
+function isValidDocs(value: unknown): value is StoredDocs {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
 
-  return Object.entries(value).every(([id, page]) => {
-    if (page === null || typeof page !== 'object') return false;
-    const record = page as Record<string, unknown>;
+  return Object.entries(value).every(([id, doc]) => {
+    if (doc === null || typeof doc !== 'object') return false;
+    const record = doc as Record<string, unknown>;
     return (
       typeof id === 'string' &&
       typeof record.id === 'string' &&
       record.id === id &&
       typeof record.title === 'string' &&
-      isEditorMode(record.mode)
+      isEditorMode(record.mode) &&
+      isValidDocumentPage(record.page)
     );
   });
 }
@@ -141,19 +151,18 @@ function loadCategories(): Category[] | null {
     const raw = localStorage.getItem(CATEGORIES_STORAGE_KEY);
     if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
-    return normalizeCategories(parsed);
+    return isValidCategories(parsed) ? parsed : null;
   } catch {
     return null;
   }
 }
 
-function loadPages(): StoredPages | null {
+function loadDocs(): StoredDocs | null {
   try {
-    const raw =
-      localStorage.getItem(PAGES_STORAGE_KEY) ?? localStorage.getItem(LEGACY_DOCS_STORAGE_KEY);
+    const raw = localStorage.getItem(DOCS_STORAGE_KEY);
     if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
-    return isValidPages(parsed) ? parsed : null;
+    return isValidDocs(parsed) ? parsed : null;
   } catch {
     return null;
   }
@@ -161,102 +170,138 @@ function loadPages(): StoredPages | null {
 
 function createSeedStore(): WorldStore {
   const categories: Category[] = [
-    { id: 'worlds', label: 'Worlds', newLabel: 'World', pageIds: [] },
-    { id: 'locations', label: 'Locations', newLabel: 'Location', pageIds: [] },
-    { id: 'factions', label: 'Factions', newLabel: 'Faction', pageIds: [] },
-    { id: 'characters', label: 'Characters', newLabel: 'Character', pageIds: [] },
-    { id: 'lore', label: 'Lore & History', newLabel: 'Lore Entry', pageIds: [] },
-    { id: 'bestiary', label: 'Bestiary', newLabel: 'Entry', pageIds: [] },
+    { id: 'worlds', label: 'Worlds', newLabel: 'World', docIds: [] },
+    { id: 'locations', label: 'Locations', newLabel: 'Location', docIds: [] },
+    { id: 'factions', label: 'Factions', newLabel: 'Faction', docIds: [] },
+    { id: 'characters', label: 'Characters', newLabel: 'Character', docIds: [] },
+    { id: 'lore', label: 'Lore & History', newLabel: 'Lore Entry', docIds: [] },
+    { id: 'bestiary', label: 'Bestiary', newLabel: 'Entry', docIds: [] },
   ];
 
-  const pages: StoredPages = {};
+  const docs: StoredDocs = {};
 
   for (const category of categories) {
     const defs = INITIAL_DOCS[category.id] ?? [];
     for (const def of defs) {
       const id = generateDocId();
-      pages[id] = {
+      docs[id] = {
         id,
         title: def.title,
         mode: def.mode ?? DEFAULT_DOC_MODE,
+        page: createDocumentPage(),
       };
-      category.pageIds.push(id);
+      category.docIds.push(id);
     }
   }
 
-  return { categories, pages };
+  return { categories, docs };
 }
 
-function reconcileStore(categories: Category[], pages: StoredPages): WorldStore {
+function reconcileStore(categories: Category[], docs: StoredDocs): WorldStore {
   const reconciledCategories = categories.map((category) => ({
     ...category,
-    pageIds: category.pageIds.filter((pageId) => {
-      if (pages[pageId]) return true;
-      console.warn(`Recovered missing document metadata for "${pageId}" from saved categories.`);
-      pages[pageId] = {
-        id: pageId,
+    docIds: category.docIds.filter((docId) => {
+      if (docs[docId]) return true;
+      console.warn(`Created placeholder document record for "${docId}" from saved categories.`);
+      docs[docId] = {
+        id: docId,
         title: 'Untitled',
         mode: DEFAULT_DOC_MODE,
+        page: createDocumentPage(),
       };
       return true;
     }),
   }));
 
-  return { categories: reconciledCategories, pages };
+  const reconciledDocs = Object.fromEntries(
+    Object.entries(docs).map(([id, doc]) => [
+      id,
+      {
+        ...doc,
+        page: normalizeDocumentPage(doc.page),
+      },
+    ]),
+  ) as StoredDocs;
+
+  return { categories: reconciledCategories, docs: reconciledDocs };
 }
 
 export function initWorldStore(): WorldStore {
   const storedCategories = loadCategories();
-  const storedPages = loadPages();
+  const storedDocs = loadDocs();
 
   if (storedCategories) {
-    const store = reconcileStore(storedCategories, storedPages ?? {});
+    const store = reconcileStore(storedCategories, storedDocs ?? {});
     saveCategories(store.categories);
-    savePages(store.pages);
+    saveDocs(store.docs);
     return store;
   }
 
   const seeded = createSeedStore();
   saveCategories(seeded.categories);
-  savePages(seeded.pages);
+  saveDocs(seeded.docs);
   return seeded;
 }
 
-export function addPageToCategory(
+export function addDocToCategory(
   store: WorldStore,
   categoryId: string,
   title: string,
 ): string {
   const id = generateDocId();
-  store.pages[id] = {
+  store.docs[id] = {
     id,
     title,
     mode: DEFAULT_DOC_MODE,
+    page: createDocumentPage(),
   };
 
   const category = store.categories.find((c) => c.id === categoryId);
   if (category) {
-    category.pageIds.push(id);
+    category.docIds.push(id);
   }
 
-  savePages(store.pages);
+  saveDocs(store.docs);
   saveCategories(store.categories);
   return id;
 }
 
-export function getPageTitle(store: WorldStore, pageId: string): string {
-  return store.pages[pageId]?.title ?? 'Untitled';
+export function getDocTitle(store: WorldStore, docId: string): string {
+  return store.docs[docId]?.title ?? 'Untitled';
 }
 
-export function getPage(store: WorldStore, pageId: string): DocumentPage | null {
-  return store.pages[pageId] ?? null;
+export function getDoc(store: WorldStore, docId: string): WorldDoc | null {
+  return store.docs[docId] ?? null;
 }
 
-export function setPageMode(store: WorldStore, pageId: string, mode: EditorMode): void {
-  const page = store.pages[pageId];
-  if (!page || page.mode === mode) return;
-  page.mode = mode;
-  savePages(store.pages);
+export function setDocMode(store: WorldStore, docId: string, mode: EditorMode): void {
+  const doc = store.docs[docId];
+  if (!doc || doc.mode === mode) return;
+  doc.mode = mode;
+  saveDocs(store.docs);
+}
+
+export function saveDocumentPage(store: WorldStore, docId: string, page: DocumentPage): void {
+  const doc = store.docs[docId];
+  if (!doc) return;
+  doc.page = page;
+  saveDocs(store.docs);
+}
+
+export function getCollaborationSession(docId: string): CollaborationSession {
+  const cached = collaborationSessionCache.get(docId);
+  if (cached) return cached;
+
+  const session = createCollaborationSession(docId);
+  collaborationSessionCache.set(docId, session);
+  return session;
+}
+
+export function releaseCollaborationSession(docId: string): void {
+  const session = collaborationSessionCache.get(docId);
+  if (!session) return;
+  destroyCollaborationSession(session);
+  collaborationSessionCache.delete(docId);
 }
 
 /**
@@ -275,7 +320,7 @@ export function addCategory(store: WorldStore, label: string): Category {
   }
   const id = generateCategoryId();
   const newLabel = deriveSingular(trimmed);
-  const category: Category = { id, label: trimmed, newLabel, pageIds: [] };
+  const category: Category = { id, label: trimmed, newLabel, docIds: [] };
   store.categories.push(category);
   saveCategories(store.categories);
   return category;
@@ -283,7 +328,7 @@ export function addCategory(store: WorldStore, label: string): Category {
 
 /**
  * Remove a category from the store.
- * Returns the page IDs that were in the deleted category so the caller can
+ * Returns the doc IDs that were in the deleted category so the caller can
  * clear any active selection if needed.
  */
 export function removeCategory(store: WorldStore, categoryId: string): string[] {
@@ -291,7 +336,7 @@ export function removeCategory(store: WorldStore, categoryId: string): string[] 
   if (idx === -1) return [];
   const [removed] = store.categories.splice(idx, 1);
   saveCategories(store.categories);
-  return removed.pageIds;
+  return removed.docIds;
 }
 
 /**

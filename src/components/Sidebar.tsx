@@ -1,13 +1,8 @@
 import { useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import type { Category, WorldStore } from '../lib/collection';
-import {
-  addPageToCategory,
-  addCategory,
-  getPageTitle,
-  removeCategory,
-  renameCategory,
-} from '../lib/collection';
+import { addCategory, removeCategory, renameCategory } from '../lib/collection';
+import { createPageInCategory, listCategoryPages } from '../lib/pages';
 import {
   getCategoryIcon,
   ChevronRight,
@@ -93,7 +88,7 @@ export function Sidebar({
   function commitAddDoc(categoryId: string) {
     const title = newDocTitle.trim();
     if (title) {
-      const pageId = addPageToCategory(store, categoryId, title);
+      const pageId = createPageInCategory(store, categoryId, title);
       onStoreChange();
       onSelectPage(pageId);
     }
@@ -144,12 +139,12 @@ export function Sidebar({
     const category = store.categories.find((entry) => entry.id === categoryId);
     if (!category) return;
 
-      setDialogState({
-        kind: 'delete',
-        categoryId,
-        label: category.label,
-        pageCount: category.pageIds.length,
-      });
+    setDialogState({
+      kind: 'delete',
+      categoryId,
+      label: category.label,
+      pageCount: category.docIds.length,
+    });
   }
 
   function confirmDeleteCategory() {
@@ -202,7 +197,7 @@ export function Sidebar({
   const activeDialogDescription =
     dialogState?.kind === 'delete'
       ? dialogState.pageCount > 0
-        ? `This category contains ${dialogState.pageCount} document(s). The sidebar grouping will be removed, but the underlying documents remain stored locally.`
+        ? `This category contains ${dialogState.pageCount} page(s). The sidebar grouping will be removed, but the underlying pages remain stored locally.`
         : 'This category will be removed from the sidebar.'
       : dialogState?.description ?? '';
 
@@ -221,6 +216,7 @@ export function Sidebar({
             const CategoryIcon = getCategoryIcon(category.id);
             const isOpen = expanded.has(category.id);
             const isRenaming = renamingId === category.id;
+            const pages = listCategoryPages(store, category);
 
             return (
               <Collapsible
@@ -292,17 +288,20 @@ export function Sidebar({
                 </div>
                 <CollapsibleContent>
                   <ul className="sidebar-doc-list">
-                    {category.pageIds.map((pageId) => (
-                      <li key={pageId}>
+                    {pages.map((page) => (
+                      <li key={page.id}>
                         <Button
-                          className={`sidebar-doc-item ${activePageId === pageId ? 'active' : ''}`}
+                          className={`sidebar-doc-item ${activePageId === page.id ? 'active' : ''}`}
                           variant="ghost"
                           size="sm"
-                          onClick={() => onSelectPage(pageId)}
-                          title={getPageTitle(store, pageId)}
+                          onClick={() => onSelectPage(page.id)}
+                          title={`${page.title} · ${page.sidebarMeta}`}
                         >
                           <FileText size={11} aria-hidden="true" />
-                          <span className="sidebar-doc-title">{getPageTitle(store, pageId)}</span>
+                          <span className="sidebar-doc-content">
+                            <span className="sidebar-doc-title">{page.title}</span>
+                            <span className="sidebar-doc-meta">{page.sidebarMeta}</span>
+                          </span>
                         </Button>
                       </li>
                     ))}
@@ -311,7 +310,7 @@ export function Sidebar({
                         <Input
                           autoFocus
                           className="sidebar-input"
-                          placeholder="Document title…"
+                          placeholder="Page title…"
                           value={newDocTitle}
                           onChange={(event) => setNewDocTitle(event.target.value)}
                           onKeyDown={(event) => handleAddDocKeyDown(event, category.id)}
