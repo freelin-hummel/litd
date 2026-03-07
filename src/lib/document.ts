@@ -177,6 +177,9 @@ export function normalizeDocumentPage(value: unknown): DocumentPage {
 
 export function createCollaborationSession(docId: string): CollaborationSession {
   const doc = new Y.Doc();
+  // Lexical stores a different Yjs schema than the previous TipTap/ProseMirror editor,
+  // so the migration uses a dedicated persistence namespace and relies on markdown
+  // page snapshots for interoperability instead of reusing the old IndexedDB payload.
   const persistence = new IndexeddbPersistence(`litd:lexical:${docId}`, doc);
   const provider = new LocalCollaborationProvider(persistence);
 

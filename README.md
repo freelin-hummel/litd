@@ -103,3 +103,7 @@ const provider = new HocuspocusProvider({
   document: doc,
 });
 ```
+
+Document pages now also persist markdown snapshots in local document metadata for import/export and editor
+bootstrapping. Because Lexical uses a different Yjs schema than the previous TipTap editor, existing
+TipTap-specific IndexedDB payloads are not reused directly.

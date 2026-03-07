@@ -102,6 +102,17 @@ function isEditorMode(value: unknown): value is EditorMode {
   return value === 'document' || value === 'canvas';
 }
 
+function isValidDocumentPage(value: unknown): boolean {
+  if (value === undefined) return true;
+  if (value === null || typeof value !== 'object') return false;
+
+  const page = value as Record<string, unknown>;
+  return (
+    (typeof page.markdown === 'string' || page.markdown === undefined) &&
+    (typeof page.updatedAt === 'string' || page.updatedAt === null || page.updatedAt === undefined)
+  );
+}
+
 function isValidDocs(value: unknown): value is StoredDocs {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
 
@@ -114,14 +125,7 @@ function isValidDocs(value: unknown): value is StoredDocs {
       record.id === id &&
       typeof record.title === 'string' &&
       isEditorMode(record.mode) &&
-      (record.page === undefined ||
-        (record.page !== null &&
-          typeof record.page === 'object' &&
-          (typeof (record.page as Record<string, unknown>).markdown === 'string' ||
-            (record.page as Record<string, unknown>).markdown === undefined) &&
-          (typeof (record.page as Record<string, unknown>).updatedAt === 'string' ||
-            (record.page as Record<string, unknown>).updatedAt === null ||
-            (record.page as Record<string, unknown>).updatedAt === undefined)))
+      isValidDocumentPage(record.page)
     );
   });
 }

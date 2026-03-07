@@ -153,10 +153,14 @@ export function LexicalDocumentEditor({
       namespace: 'litd-document-editor',
       nodes: [HeadingNode, QuoteNode, ListNode, ListItemNode, CodeNode, LinkNode],
       onError: (error: Error) => {
-        throw error;
+        const contextualError = new Error(
+          `Lexical editor failed for document "${docId}": ${error.message}`,
+        );
+        (contextualError as Error & { cause?: Error }).cause = error;
+        throw contextualError;
       },
     }),
-    [],
+    [docId],
   );
 
   const initialEditorState = useCallback(
