@@ -1,10 +1,10 @@
 # LITD — Collaborative TTRPG Worldbuilder
 
-A collaborative tabletop RPG worldbuilding application powered by [TipTap](https://tiptap.dev/) and [tldraw](https://tldraw.dev/).
+A collaborative tabletop RPG worldbuilding application powered by [Lexical](https://lexical.dev/) and [tldraw](https://tldraw.dev/).
 
 ## Features
 
-- **Rich document editing** via TipTap with Yjs-backed collaborative document state
+- **Rich document editing** via Lexical with Yjs-backed collaborative document state
 - **Freeform canvas mode** via tldraw for maps, diagrams, and relationship boards
 - **TTRPG-organised sidebar** with six worldbuilding categories:
   - Worlds · Locations · Factions · Characters · Lore & History · Bestiary
@@ -44,7 +44,7 @@ Those tokens are used by:
 
 - the app shell styles in `src/App.css`
 - the shared primitives in `src/primitives/primitives.css`
-- TipTap document surfaces in `src/components/Editor.tsx` / `src/App.css`
+- Lexical document surfaces in `src/components/LexicalDocumentEditor.tsx` / `src/App.css`
 - tldraw theme overrides in `src/components/Editor.tsx` / `src/App.css`
 
 Adding a new theme requires only two steps:
@@ -78,7 +78,7 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 | Layer | Technology |
 |-------|-----------|
-| Document editor | [TipTap](https://tiptap.dev/) + StarterKit + Collaboration |
+| Document editor | [Lexical](https://lexical.dev/) + Markdown + Yjs collaboration |
 | Canvas | [tldraw](https://tldraw.dev/) |
 | Data / CRDT | Yjs + `y-indexeddb` |
 | Icons | [lucide-react](https://lucide.dev/) |
@@ -87,17 +87,19 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 ## Adding Real-Time Collaboration
 
-TipTap's collaboration extension is built on top of [Yjs](https://github.com/yjs/yjs) CRDTs. To enable
-live multi-user sync, attach a Hocuspocus or Yjs provider to the document returned by
-`getCollaborationDoc(docId)`:
+The Lexical document layer is backed by [Yjs](https://github.com/yjs/yjs) CRDTs and persists locally through
+`y-indexeddb`. To attach remote multi-user sync, reuse the `Y.Doc` returned by
+`getCollaborationSession(docId).doc`:
 
 ```ts
 import { HocuspocusProvider } from '@hocuspocus/provider';
-import { getCollaborationDoc } from './src/lib/collection';
+import { getCollaborationSession } from './src/lib/collection';
+
+const { doc } = getCollaborationSession(docId);
 
 const provider = new HocuspocusProvider({
   url: 'wss://your-server.example.com',
   name: 'litd-room',
-  document: getCollaborationDoc(docId),
+  document: doc,
 });
 ```

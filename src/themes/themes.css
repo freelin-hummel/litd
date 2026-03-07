@@ -2,7 +2,7 @@
  * Theme contract:
  * - theme flavor tokens live inside each [data-theme="..."] block
  * - semantic UI tokens are defined once in :root and are consumed by the app shell,
- *   TipTap surfaces, shared primitives, and tldraw overrides
+ *   document surfaces, shared primitives, and tldraw overrides
  */
 
 :root {
