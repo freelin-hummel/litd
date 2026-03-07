@@ -25,6 +25,11 @@ export interface WorldStore {
   docs: Record<string, WorldDoc>;
 }
 
+export interface CollaborationHandle {
+  doc: Y.Doc;
+  persistence: IndexeddbPersistence;
+}
+
 const DEFAULT_DOC_MODE: EditorMode = 'document';
 
 const INITIAL_DOCS: Record<string, { title: string; mode?: EditorMode }[]> = {
@@ -48,6 +53,8 @@ const INITIAL_DOCS: Record<string, { title: string; mode?: EditorMode }[]> = {
 /** localStorage keys for persisting metadata. */
 const CATEGORIES_STORAGE_KEY = 'litd:categories';
 const DOCS_STORAGE_KEY = 'litd:docs';
+/** Keep the legacy prefix so existing local document data keeps loading after the editor migration. */
+const COLLABORATION_STORAGE_PREFIX = 'litd:tiptap:';
 
 type StoredDocs = Record<string, WorldDoc>;
 
@@ -251,14 +258,22 @@ export function setDocMode(store: WorldStore, docId: string, mode: EditorMode): 
   saveDocs(store.docs);
 }
 
-export function getCollaborationDoc(docId: string): Y.Doc {
+export function getCollaborationHandle(docId: string): CollaborationHandle {
   const cached = yDocCache.get(docId);
-  if (cached) return cached;
+  const persisted = yPersistenceCache.get(docId);
+  if (cached && persisted) {
+    return { doc: cached, persistence: persisted };
+  }
 
   const yDoc = new Y.Doc();
+  const persistence = new IndexeddbPersistence(`${COLLABORATION_STORAGE_PREFIX}${docId}`, yDoc);
   yDocCache.set(docId, yDoc);
-  yPersistenceCache.set(docId, new IndexeddbPersistence(`litd:tiptap:${docId}`, yDoc));
-  return yDoc;
+  yPersistenceCache.set(docId, persistence);
+  return { doc: yDoc, persistence };
+}
+
+export function getCollaborationDoc(docId: string): Y.Doc {
+  return getCollaborationHandle(docId).doc;
 }
 
 export function releaseCollaborationDoc(docId: string): void {

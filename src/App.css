@@ -313,6 +313,7 @@ body {
 }
 
 .editor-document-inner {
+  position: relative;
   max-width: 820px;
   margin: 0 auto;
   padding: 20px 24px 72px;
@@ -329,6 +330,14 @@ body {
   font-size: 15px;
   line-height: 1.68;
   outline: none;
+}
+
+.editor-document-placeholder {
+  position: absolute;
+  top: 20px;
+  left: 24px;
+  color: var(--theme-text-muted);
+  pointer-events: none;
 }
 
 .editor-document-content > * + * {
@@ -383,14 +392,6 @@ body {
 .editor-document-content pre code {
   background: transparent;
   padding: 0;
-}
-
-.editor-document-content .is-editor-empty:first-child::before {
-  color: var(--theme-text-muted);
-  content: attr(data-placeholder);
-  float: left;
-  height: 0;
-  pointer-events: none;
 }
 
 .editor-loading {
