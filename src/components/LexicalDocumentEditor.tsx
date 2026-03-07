@@ -1,4 +1,4 @@
-import { $convertFromMarkdownString, $convertToMarkdownString, TRANSFORMERS } from '@lexical/markdown';
+import { $convertFromMarkdownString, TRANSFORMERS } from '@lexical/markdown';
 import { CodeNode } from '@lexical/code';
 import { LinkNode } from '@lexical/link';
 import { ListItemNode, ListNode } from '@lexical/list';
@@ -11,14 +11,11 @@ import { DraggableBlockPlugin_EXPERIMENTAL } from '@lexical/react/LexicalDraggab
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
 import { MarkdownShortcutPlugin } from '@lexical/react/LexicalMarkdownShortcutPlugin';
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
-import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { HeadingNode, QuoteNode } from '@lexical/rich-text';
-import { $getRoot } from 'lexical';
 import type { LexicalEditor } from 'lexical';
-import { Download, GripVertical, Upload } from 'lucide-react';
+import { GripVertical } from 'lucide-react';
 import type { MutableRefObject } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { Button } from '../primitives';
 import type { DocumentPage } from '../lib/document';
 import { getCollaborationSession } from '../lib/collection';
 
@@ -26,16 +23,6 @@ interface LexicalDocumentEditorProps {
   docId: string;
   docTitle: string;
   page: DocumentPage;
-}
-
-function createMarkdownFilename(title: string): string {
-  const slug = title
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-
-  return `${slug || 'document'}.md`;
 }
 
 function DraggableBlockMenu({ menuRef }: { menuRef: MutableRefObject<HTMLDivElement | null> }) {
@@ -52,75 +39,8 @@ function DraggableBlockTargetLine({ targetLineRef }: { targetLineRef: MutableRef
   return <div ref={(node) => { targetLineRef.current = node; }} className="editor-document-drag-target-line" aria-hidden="true" />;
 }
 
-function MarkdownTransferPlugin({ docTitle }: { docTitle: string }) {
-  const [editor] = useLexicalComposerContext();
-  const inputRef = useRef<HTMLInputElement | null>(null);
-
-  const handleExport = useCallback(() => {
-    editor.getEditorState().read(() => {
-      const markdown = $convertToMarkdownString(TRANSFORMERS);
-      const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = createMarkdownFilename(docTitle);
-      link.click();
-      URL.revokeObjectURL(url);
-    });
-  }, [docTitle, editor]);
-
-  const handleImport = useCallback(
-    async (file: File | null) => {
-      if (!file) return;
-      const markdown = await file.text();
-
-      editor.update(() => {
-        $getRoot().clear();
-        $convertFromMarkdownString(markdown, TRANSFORMERS);
-      });
-    },
-    [editor],
-  );
-
-  return (
-    <div className="editor-document-actions">
-      <input
-        ref={inputRef}
-        className="editor-document-file-input"
-        type="file"
-        accept=".md,text/markdown,text/plain"
-        onChange={(event) => {
-          void handleImport(event.target.files?.[0] ?? null);
-          event.target.value = '';
-        }}
-      />
-      <Button
-        className="editor-document-action"
-        variant="outline"
-        size="sm"
-        onClick={() => inputRef.current?.click()}
-        title="Import Markdown"
-      >
-        <Upload size={14} aria-hidden="true" />
-        Import Markdown
-      </Button>
-      <Button
-        className="editor-document-action"
-        variant="outline"
-        size="sm"
-        onClick={handleExport}
-        title="Export Markdown"
-      >
-        <Download size={14} aria-hidden="true" />
-        Export Markdown
-      </Button>
-    </div>
-  );
-}
-
 export function LexicalDocumentEditor({
   docId,
-  docTitle,
   page,
 }: LexicalDocumentEditorProps) {
   const session = useMemo(() => getCollaborationSession(docId), [docId]);
@@ -173,7 +93,6 @@ export function LexicalDocumentEditor({
               shouldBootstrap
               initialEditorState={initialEditorState}
             />
-            <MarkdownTransferPlugin docTitle={docTitle} />
             <RichTextPlugin
               contentEditable={<ContentEditable className="editor-document-content" />}
               placeholder={null}
