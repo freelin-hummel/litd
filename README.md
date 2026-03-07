@@ -20,9 +20,50 @@ A collaborative tabletop RPG worldbuilding application powered by [TipTap](https
 | **LANCER** *(default)* | Sci-fi mecha aesthetic — amber/cyan accents, monospace terminal fonts, deep blue-black backgrounds |
 | **Dark Fantasy** | High-fantasy aesthetic — gold accents, serif brand font, deep purple-black backgrounds |
 
+The theme contract now has two layers:
+
+1. **Flavor tokens** inside each `[data-theme="..."]` block in `src/themes/themes.css`
+2. **Semantic tokens** defined once in `:root` and consumed everywhere else
+
+The semantic contract is the source of truth for custom UI:
+
+- `--theme-app-background`
+- `--theme-panel`
+- `--theme-surface-elevated`
+- `--theme-border`
+- `--theme-text`
+- `--theme-text-muted`
+- `--theme-accent`
+- `--theme-accent-muted`
+- `--theme-danger`
+- `--theme-focus-ring`
+- `--theme-radius`
+- `--theme-shadow-elevated`
+
+Those tokens are used by:
+
+- the app shell styles in `src/App.css`
+- the shared primitives in `src/primitives/primitives.css`
+- TipTap document surfaces in `src/components/Editor.tsx` / `src/App.css`
+- tldraw theme overrides in `src/components/Editor.tsx` / `src/App.css`
+
 Adding a new theme requires only two steps:
-1. Add a `[data-theme="my-theme"]` block to `src/themes/themes.css` overriding the CSS variable tokens
-2. Add a `{ id, label, shortLabel }` entry to the `THEMES` array in `src/themes/index.ts`
+1. Add a `[data-theme="my-theme"]` block to `src/themes/themes.css` mapping the flavor tokens
+2. Add a `{ id, label, shortLabel, appearance }` entry to the `THEMES` array in `src/themes/index.ts`
+
+## Shared primitives
+
+Custom UI behavior and accessibility now go through a small internal primitives layer in `src/primitives/`:
+
+- `Button` / `IconButton`
+- `ToggleGroup`
+- `Collapsible`
+- `DropdownMenu`
+- `AlertDialog`
+- `Input`
+- `Tooltip`
+
+Feature components should prefer composing these primitives rather than using Radix directly. This keeps focus, hover, active, disabled, and overlay states aligned with the shared semantic theme tokens.
 
 ## Getting Started
 

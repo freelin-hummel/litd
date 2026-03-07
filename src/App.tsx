@@ -8,6 +8,7 @@ import type { EditorMode } from './lib/collection';
 import type { ThemeId } from './themes';
 import { DEFAULT_THEME, applyTheme } from './themes';
 import './themes/themes.css';
+import './primitives/primitives.css';
 import './App.css';
 
 const store: WorldStore = initWorldStore();
@@ -80,7 +81,7 @@ function App() {
             onModeChange={handleModeChange}
           />
         )}
-        <Editor doc={activeDoc} />
+        <Editor doc={activeDoc} theme={theme} />
       </main>
     </div>
   );
