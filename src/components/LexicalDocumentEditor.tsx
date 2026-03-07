@@ -3,6 +3,7 @@ import { CodeNode } from '@lexical/code';
 import { LinkNode } from '@lexical/link';
 import { ListItemNode, ListNode } from '@lexical/list';
 import { CollaborationPlugin } from '@lexical/react/LexicalCollaborationPlugin';
+import { LexicalCollaboration } from '@lexical/react/LexicalCollaborationContext';
 import { ContentEditable } from '@lexical/react/LexicalContentEditable';
 import type { InitialConfigType } from '@lexical/react/LexicalComposer';
 import { LexicalComposer } from '@lexical/react/LexicalComposer';
@@ -171,23 +172,25 @@ export function LexicalDocumentEditor({
     <div className="editor-document-shell">
       <div className="editor-document-inner">
         <LexicalComposer initialConfig={initialConfig}>
-          <CollaborationPlugin
-            id={docId}
-            providerFactory={(id, yjsDocMap) => {
-              yjsDocMap.set(id, session.doc);
-              return session.provider;
-            }}
-            shouldBootstrap
-            initialEditorState={initialEditorState}
-          />
-          <MarkdownTransferPlugin docTitle={docTitle} />
-          <RichTextPlugin
-            contentEditable={<ContentEditable className="editor-document-content" />}
-            placeholder={<DocumentPlaceholder />}
-            ErrorBoundary={LexicalErrorBoundary}
-          />
-          <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
-          <MarkdownPersistencePlugin initialMarkdown={page.markdown} onPageChange={onPageChange} />
+          <LexicalCollaboration>
+            <CollaborationPlugin
+              id={docId}
+              providerFactory={(id, yjsDocMap) => {
+                yjsDocMap.set(id, session.doc);
+                return session.provider;
+              }}
+              shouldBootstrap
+              initialEditorState={initialEditorState}
+            />
+            <MarkdownTransferPlugin docTitle={docTitle} />
+            <RichTextPlugin
+              contentEditable={<ContentEditable className="editor-document-content" />}
+              placeholder={<DocumentPlaceholder />}
+              ErrorBoundary={LexicalErrorBoundary}
+            />
+            <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
+            <MarkdownPersistencePlugin initialMarkdown={page.markdown} onPageChange={onPageChange} />
+          </LexicalCollaboration>
         </LexicalComposer>
       </div>
     </div>
