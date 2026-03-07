@@ -6,6 +6,7 @@ import {
   serializePage,
   type PageMetadata,
   type PagePropertyValue,
+  type SerializedPage,
 } from './pages';
 
 /** Category IDs are arbitrary strings; built-in categories use well-known values. */
@@ -408,7 +409,7 @@ export function setDocMode(store: WorldStore, docId: string, mode: EditorMode): 
   saveDocs(store.docs);
 }
 
-function getParsedDocumentPage(doc: WorldDoc) {
+function ensureParsedDocumentPage(doc: WorldDoc): SerializedPage {
   const serialized = loadSerializedPage(doc.id);
   if (!serialized) {
     hydrateStoredDocumentPage(doc);
@@ -420,7 +421,7 @@ function getParsedDocumentPage(doc: WorldDoc) {
 
 export function getDocumentMarkdown(doc: WorldDoc): string {
   if (doc.mode !== 'document') return '';
-  return getParsedDocumentPage(doc).markdown;
+  return ensureParsedDocumentPage(doc).markdown;
 }
 
 export function setDocumentMarkdown(doc: WorldDoc, markdown: string): void {
@@ -438,7 +439,7 @@ export function exportDocumentPage(store: WorldStore, docId: string): string | n
   const doc = store.docs[docId];
   if (!doc || doc.mode !== 'document') return null;
 
-  const page = getParsedDocumentPage(doc);
+  const page = ensureParsedDocumentPage(doc);
   const serialized = serializePage({
     metadata: getDocPageMetadata(doc),
     markdown: page.markdown,

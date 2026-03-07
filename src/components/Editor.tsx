@@ -31,7 +31,7 @@ interface CanvasMountedEditor {
 }
 
 function DocumentEditor({ doc }: { doc: WorldDoc }) {
-  const initialMarkdown = useMemo(() => getDocumentMarkdown(doc), [doc]);
+  const initialMarkdown = useMemo(() => getDocumentMarkdown(doc), [doc.id]);
 
   const initialConfig = useMemo(
     () => ({
@@ -56,7 +56,7 @@ function DocumentEditor({ doc }: { doc: WorldDoc }) {
               contentEditable={
                 <ContentEditable
                   className="editor-document-content"
-                  aria-label={`Document editor for ${doc.title}`}
+                  aria-label="Document editor"
                 />
               }
               placeholder={

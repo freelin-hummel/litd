@@ -68,7 +68,10 @@ function isPageMetadata(value: unknown): value is PageMetadata {
 }
 
 function normalizeMarkdown(markdown: string): string {
-  return markdown.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/^\n+/, '').trimEnd();
+  const withoutBom = markdown.replace(/^\uFEFF/, '');
+  const withUnixLineEndings = withoutBom.replace(/\r\n/g, '\n');
+  const withoutLeadingBlankLines = withUnixLineEndings.replace(/^\n+/, '');
+  return withoutLeadingBlankLines.trimEnd();
 }
 
 export function normalizePageMetadata(
@@ -76,7 +79,7 @@ export function normalizePageMetadata(
 ): PageMetadata {
   return {
     title: metadata.title,
-    icon: metadata.icon?.trim() ? metadata.icon : null,
+    icon: metadata.icon?.trim() || null,
     tags: (metadata.tags ?? []).map((tag) => tag.trim()).filter(Boolean),
     properties: isPagePropertiesRecord(metadata.properties) ? metadata.properties : {},
   };
