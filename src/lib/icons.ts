@@ -1,7 +1,3 @@
-/**
- * Maps CategoryId values to lucide-react icon components.
- * Update this file to change category icons without touching component logic.
- */
 import {
   AlignLeft,
   BookOpen,
@@ -21,22 +17,39 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
-/** Icons for the built-in categories. */
-const BUILTIN_CATEGORY_ICONS: Partial<Record<string, LucideIcon>> = {
-  worlds:     Globe,
-  locations:  MapPin,
-  factions:   Shield,
-  characters: User,
-  lore:       BookOpen,
-  bestiary:   Skull,
+export const CATEGORY_ICON_NAMES = [
+  'book-open',
+  'folder',
+  'globe',
+  'map-pin',
+  'shield',
+  'skull',
+  'user',
+] as const;
+
+export type CategoryIconName = (typeof CATEGORY_ICON_NAMES)[number];
+
+export const DEFAULT_CATEGORY_ICON_NAME: CategoryIconName = 'folder';
+
+const CATEGORY_ICONS: Record<CategoryIconName, LucideIcon> = {
+  'book-open': BookOpen,
+  folder: Folder,
+  globe: Globe,
+  'map-pin': MapPin,
+  shield: Shield,
+  skull: Skull,
+  user: User,
 };
 
+export function isCategoryIconName(value: unknown): value is CategoryIconName {
+  return typeof value === 'string' && CATEGORY_ICON_NAMES.includes(value as CategoryIconName);
+}
+
 /**
- * Returns the icon for a category ID.
- * Built-in categories get their dedicated icon; custom categories fall back to Folder.
+ * Returns the icon selected in persisted category metadata.
  */
-export function getCategoryIcon(categoryId: string): LucideIcon {
-  return BUILTIN_CATEGORY_ICONS[categoryId] ?? Folder;
+export function getCategoryIcon(iconName: string | null | undefined): LucideIcon {
+  return isCategoryIconName(iconName) ? CATEGORY_ICONS[iconName] : Folder;
 }
 
 /** Document-editor mode icon (structured document / text) */

@@ -5,11 +5,21 @@ import {
   destroyCollaborationSession,
   normalizeDocumentPage,
 } from './document';
+import type { EditorMode } from './document-pages';
+import {
+  DEFAULT_CATEGORY_ICON_NAME,
+  isCategoryIconName,
+  type CategoryIconName,
+} from './icons';
 
 /** Category IDs are arbitrary strings; built-in categories use well-known values. */
 export type CategoryId = string;
 
-export type EditorMode = 'document' | 'canvas';
+export type { EditorMode } from './document-pages';
+
+export interface CategoryMetadata {
+  icon: CategoryIconName;
+}
 
 export interface Category {
   id: string;
@@ -17,6 +27,7 @@ export interface Category {
   /** Singular label used in "New <X>" button text */
   newLabel: string;
   docIds: string[];
+  metadata: CategoryMetadata;
 }
 
 export interface WorldDoc {
@@ -33,23 +44,71 @@ export interface WorldStore {
 
 const DEFAULT_DOC_MODE: EditorMode = 'document';
 
-const INITIAL_DOCS: Record<string, { title: string; mode?: EditorMode }[]> = {
-  worlds: [{ title: 'Karrakis Trade Baronies — Campaign Overview' }],
-  locations: [
-    { title: 'Cradle' },
-    { title: 'Cornucopia Station' },
-  ],
-  factions: [
-    { title: 'Harrison Armory' },
-    { title: 'IPS-Northstar' },
-  ],
-  characters: [
-    { title: 'Navarro (PC — Call Sign: PILGRIM)' },
-    { title: 'Director Chen (NPC)' },
-  ],
-  lore: [{ title: 'The Deimos Event' }],
-  bestiary: [{ title: 'Ultra — Horus Goblin', mode: 'canvas' }],
-};
+interface SeedCategoryDefinition {
+  id: CategoryId;
+  label: string;
+  newLabel: string;
+  metadata: CategoryMetadata;
+  docs: { title: string; mode?: EditorMode }[];
+}
+
+const DEFAULT_CATEGORY_SEEDS: SeedCategoryDefinition[] = [
+  {
+    id: 'worlds',
+    label: 'Worlds',
+    newLabel: 'World',
+    metadata: { icon: 'globe' },
+    docs: [{ title: 'Karrakis Trade Baronies — Campaign Overview' }],
+  },
+  {
+    id: 'locations',
+    label: 'Locations',
+    newLabel: 'Location',
+    metadata: { icon: 'map-pin' },
+    docs: [
+      { title: 'Cradle' },
+      { title: 'Cornucopia Station' },
+    ],
+  },
+  {
+    id: 'factions',
+    label: 'Factions',
+    newLabel: 'Faction',
+    metadata: { icon: 'shield' },
+    docs: [
+      { title: 'Harrison Armory' },
+      { title: 'IPS-Northstar' },
+    ],
+  },
+  {
+    id: 'characters',
+    label: 'Characters',
+    newLabel: 'Character',
+    metadata: { icon: 'user' },
+    docs: [
+      { title: 'Navarro (PC — Call Sign: PILGRIM)' },
+      { title: 'Director Chen (NPC)' },
+    ],
+  },
+  {
+    id: 'lore',
+    label: 'Lore & History',
+    newLabel: 'Lore Entry',
+    metadata: { icon: 'book-open' },
+    docs: [{ title: 'The Deimos Event' }],
+  },
+  {
+    id: 'bestiary',
+    label: 'Bestiary',
+    newLabel: 'Entry',
+    metadata: { icon: 'skull' },
+    docs: [{ title: 'Ultra — Horus Goblin', mode: 'canvas' }],
+  },
+];
+
+const DEFAULT_CATEGORY_SEEDS_BY_ID = new Map(
+  DEFAULT_CATEGORY_SEEDS.map((seed) => [seed.id, seed]),
+);
 
 /** localStorage keys for persisting metadata. */
 const CATEGORIES_STORAGE_KEY = 'litd:categories';
@@ -63,7 +122,7 @@ function generateDocId(): string {
   return `doc-${crypto.randomUUID()}`;
 }
 
-/** Persist the category list (docIds only) to localStorage. */
+/** Persist the category list, including presentation metadata, to localStorage. */
 export function saveCategories(categories: Category[]): void {
   try {
     localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(categories));
@@ -92,6 +151,9 @@ function isValidCategories(value: unknown): value is Category[] {
       typeof (item as Record<string, unknown>).label === 'string' &&
       typeof (item as Record<string, unknown>).newLabel === 'string' &&
       Array.isArray((item as Record<string, unknown>).docIds) &&
+      ((item as Record<string, unknown>).metadata === undefined ||
+        ((item as Record<string, unknown>).metadata !== null &&
+          typeof (item as Record<string, unknown>).metadata === 'object')) &&
       ((item as Record<string, unknown>).docIds as unknown[]).every(
         (id) => typeof id === 'string',
       ),
@@ -109,7 +171,8 @@ function isValidDocumentPage(value: unknown): boolean {
   const page = value as Record<string, unknown>;
   return (
     (typeof page.markdown === 'string' || page.markdown === undefined) &&
-    (typeof page.updatedAt === 'string' || page.updatedAt === null || page.updatedAt === undefined)
+    (typeof page.updatedAt === 'string' || page.updatedAt === null || page.updatedAt === undefined) &&
+    (page.model === undefined || (page.model !== null && typeof page.model === 'object'))
   );
 }
 
@@ -145,13 +208,40 @@ function generateCategoryId(): string {
   return `cat-${Date.now().toString(36)}-${(++categoryIdSequence).toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
+function normalizeCategoryMetadata(
+  value: unknown,
+  fallback: CategoryMetadata = { icon: DEFAULT_CATEGORY_ICON_NAME },
+): CategoryMetadata {
+  if (value === null || typeof value !== 'object') {
+    return { ...fallback };
+  }
+
+  const record = value as Record<string, unknown>;
+  return {
+    icon: isCategoryIconName(record.icon) ? record.icon : fallback.icon,
+  };
+}
+
+function normalizeCategory(value: Category): Category {
+  const seed = DEFAULT_CATEGORY_SEEDS_BY_ID.get(value.id);
+  const record = value as unknown as Record<string, unknown>;
+
+  return {
+    id: value.id,
+    label: value.label,
+    newLabel: value.newLabel,
+    docIds: value.docIds.filter((docId) => typeof docId === 'string'),
+    metadata: normalizeCategoryMetadata(record.metadata, seed?.metadata),
+  };
+}
+
 /** Load the category list from localStorage, or return null if not found. */
 function loadCategories(): Category[] | null {
   try {
     const raw = localStorage.getItem(CATEGORIES_STORAGE_KEY);
     if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
-    return isValidCategories(parsed) ? parsed : null;
+    return isValidCategories(parsed) ? parsed.map((category) => normalizeCategory(category)) : null;
   } catch {
     return null;
   }
@@ -168,27 +258,65 @@ function loadDocs(): StoredDocs | null {
   }
 }
 
+function getDocMembership(
+  store: WorldStore,
+  docId: string,
+): { categoryIds: string[]; sortIndex: number | null } {
+  const categoryIds: string[] = [];
+  let sortIndex: number | null = null;
+
+  for (const category of store.categories) {
+    const index = category.docIds.indexOf(docId);
+    if (index === -1) continue;
+    categoryIds.push(category.id);
+    if (sortIndex === null) {
+      sortIndex = index;
+    }
+  }
+
+  return { categoryIds, sortIndex };
+}
+
+function syncStoredDocPage(store: WorldStore, docId: string): void {
+  const doc = store.docs[docId];
+  if (!doc) return;
+
+  const membership = getDocMembership(store, docId);
+  doc.page = normalizeDocumentPage(doc.page, {
+    id: doc.id,
+    title: doc.title,
+    mode: doc.mode,
+    categoryIds: membership.categoryIds,
+    sortIndex: membership.sortIndex,
+  });
+}
+
 function createSeedStore(): WorldStore {
-  const categories: Category[] = [
-    { id: 'worlds', label: 'Worlds', newLabel: 'World', docIds: [] },
-    { id: 'locations', label: 'Locations', newLabel: 'Location', docIds: [] },
-    { id: 'factions', label: 'Factions', newLabel: 'Faction', docIds: [] },
-    { id: 'characters', label: 'Characters', newLabel: 'Character', docIds: [] },
-    { id: 'lore', label: 'Lore & History', newLabel: 'Lore Entry', docIds: [] },
-    { id: 'bestiary', label: 'Bestiary', newLabel: 'Entry', docIds: [] },
-  ];
+  const categories: Category[] = DEFAULT_CATEGORY_SEEDS.map((seed) => ({
+    id: seed.id,
+    label: seed.label,
+    newLabel: seed.newLabel,
+    docIds: [],
+    metadata: { ...seed.metadata },
+  }));
 
   const docs: StoredDocs = {};
 
   for (const category of categories) {
-    const defs = INITIAL_DOCS[category.id] ?? [];
+    const defs = DEFAULT_CATEGORY_SEEDS_BY_ID.get(category.id)?.docs ?? [];
     for (const def of defs) {
       const id = generateDocId();
       docs[id] = {
         id,
         title: def.title,
         mode: def.mode ?? DEFAULT_DOC_MODE,
-        page: createDocumentPage(),
+        page: createDocumentPage({
+          id,
+          title: def.title,
+          mode: def.mode ?? DEFAULT_DOC_MODE,
+          categoryIds: [category.id],
+          sortIndex: category.docIds.length,
+        }),
       };
       category.docIds.push(id);
     }
@@ -198,27 +326,53 @@ function createSeedStore(): WorldStore {
 }
 
 function reconcileStore(categories: Category[], docs: StoredDocs): WorldStore {
-  const reconciledCategories = categories.map((category) => ({
-    ...category,
-    docIds: category.docIds.filter((docId) => {
-      if (docs[docId]) return true;
-      console.warn(`Created placeholder document record for "${docId}" from saved categories.`);
-      docs[docId] = {
-        id: docId,
-        title: 'Untitled',
-        mode: DEFAULT_DOC_MODE,
-        page: createDocumentPage(),
-      };
-      return true;
-    }),
-  }));
+  const membership = new Map<string, { categoryIds: string[]; sortIndex: number | null }>();
+
+  const reconciledCategories = categories.map((category) => {
+    const normalizedCategory = normalizeCategory(category);
+
+    return {
+      ...normalizedCategory,
+      docIds: normalizedCategory.docIds.filter((docId, sortIndex) => {
+        if (!docs[docId]) {
+          console.warn(`Created placeholder document record for "${docId}" from saved categories.`);
+          docs[docId] = {
+            id: docId,
+            title: 'Untitled',
+            mode: DEFAULT_DOC_MODE,
+            page: createDocumentPage({
+              id: docId,
+              title: 'Untitled',
+              mode: DEFAULT_DOC_MODE,
+              categoryIds: [normalizedCategory.id],
+              sortIndex,
+            }),
+          };
+        }
+
+        const entry = membership.get(docId) ?? { categoryIds: [], sortIndex: null };
+        entry.categoryIds.push(normalizedCategory.id);
+        if (entry.sortIndex === null) {
+          entry.sortIndex = sortIndex;
+        }
+        membership.set(docId, entry);
+        return true;
+      }),
+    };
+  });
 
   const reconciledDocs = Object.fromEntries(
     Object.entries(docs).map(([id, doc]) => [
       id,
       {
         ...doc,
-        page: normalizeDocumentPage(doc.page),
+        page: normalizeDocumentPage(doc.page, {
+          id,
+          title: doc.title,
+          mode: doc.mode,
+          categoryIds: membership.get(id)?.categoryIds ?? [],
+          sortIndex: membership.get(id)?.sortIndex ?? null,
+        }),
       },
     ]),
   ) as StoredDocs;
@@ -253,12 +407,18 @@ export function addDocToCategory(
     id,
     title,
     mode: DEFAULT_DOC_MODE,
-    page: createDocumentPage(),
+    page: createDocumentPage({
+      id,
+      title,
+      mode: DEFAULT_DOC_MODE,
+      categoryIds: [categoryId],
+    }),
   };
 
   const category = store.categories.find((c) => c.id === categoryId);
   if (category) {
     category.docIds.push(id);
+    syncStoredDocPage(store, id);
   }
 
   saveDocs(store.docs);
@@ -278,6 +438,7 @@ export function setDocMode(store: WorldStore, docId: string, mode: EditorMode): 
   const doc = store.docs[docId];
   if (!doc || doc.mode === mode) return;
   doc.mode = mode;
+  syncStoredDocPage(store, docId);
   saveDocs(store.docs);
 }
 
@@ -320,7 +481,13 @@ export function addCategory(store: WorldStore, label: string): Category {
   }
   const id = generateCategoryId();
   const newLabel = deriveSingular(trimmed);
-  const category: Category = { id, label: trimmed, newLabel, docIds: [] };
+  const category: Category = {
+    id,
+    label: trimmed,
+    newLabel,
+    docIds: [],
+    metadata: { icon: DEFAULT_CATEGORY_ICON_NAME },
+  };
   store.categories.push(category);
   saveCategories(store.categories);
   return category;
@@ -335,6 +502,10 @@ export function removeCategory(store: WorldStore, categoryId: string): string[] 
   const idx = store.categories.findIndex((c) => c.id === categoryId);
   if (idx === -1) return [];
   const [removed] = store.categories.splice(idx, 1);
+  for (const docId of removed.docIds) {
+    syncStoredDocPage(store, docId);
+  }
+  saveDocs(store.docs);
   saveCategories(store.categories);
   return removed.docIds;
 }

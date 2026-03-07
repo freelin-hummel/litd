@@ -6,9 +6,9 @@ A collaborative tabletop RPG worldbuilding application powered by [Lexical](http
 
 - **Rich document editing** via Lexical with Yjs-backed collaborative document state
 - **Freeform canvas mode** via tldraw for maps, diagrams, and relationship boards
-- **TTRPG-organised sidebar** with six worldbuilding categories:
+- **Flexible sidebar categories** with seeded worldbuilding defaults:
   - Worlds · Locations · Factions · Characters · Lore & History · Bestiary
-- **Create new documents** in any category with a single click
+- **Create new pages** in any category with a single click
 - **CRDT-backed document model** using Yjs, Hocuspocus, and IndexedDB persistence
 - **Two built-in themes** with an instant switcher in the sidebar footer
 - **Lucide icons** throughout — no emoji
@@ -64,6 +64,21 @@ Custom UI behavior and accessibility now go through a small internal primitives 
 - `Tooltip`
 
 Feature components should prefer composing these primitives rather than using Radix directly. This keeps focus, hover, active, disabled, and overlay states aligned with the shared semantic theme tokens.
+
+## Shared page structure
+
+The app now treats document and canvas as two projections of the same persisted page structure:
+
+- **Page metadata**: stable page identity, title, mode, category membership, and ordering metadata
+- **Blocks**: meaningful document/content units that drag-and-drop editing can reorder
+- **Entities**: named records referenced by blocks or canvas objects
+- **Relations**: stable references between blocks and/or entities
+
+This shared model lives in `src/lib/document-pages.ts` and is persisted alongside page content metadata in `src/lib/document.ts`.
+
+- Lexical is the structured document editor over that shared model.
+- Canvas is the spatial editor/view over the same page identity and related records.
+- Seeded categories provide default labels and icons, but category presentation metadata is persisted on each category record instead of being inferred from category ids in generic UI helpers.
 
 ## Getting Started
 

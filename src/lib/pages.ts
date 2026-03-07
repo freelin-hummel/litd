@@ -25,13 +25,13 @@ export interface PageMetadata extends WorldDoc {
 export const PAGE_MODE_DETAILS: Record<EditorMode, PageModeDetails> = {
   document: {
     label: 'Document',
-    description: 'Structured page content in the shared document editor.',
+    description: 'Structured block editor view over the shared page model.',
     sidebarMeta: 'Markdown',
     serializationFormat: 'markdown',
   },
   canvas: {
     label: 'Canvas',
-    description: 'Freeform maps, diagrams, and visual layouts.',
+    description: 'Spatial canvas view over the shared page model.',
     sidebarMeta: 'Canvas',
     serializationFormat: 'canvas',
   },
