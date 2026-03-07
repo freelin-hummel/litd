@@ -1,13 +1,22 @@
-import Collaboration from '@tiptap/extension-collaboration';
-import Placeholder from '@tiptap/extension-placeholder';
-import StarterKit from '@tiptap/starter-kit';
-import { EditorContent, useEditor } from '@tiptap/react';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { DefaultQuickActions, Tldraw } from 'tldraw';
 import { Zap } from 'lucide-react';
+import { LexicalComposer } from '@lexical/react/LexicalComposer';
+import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
+import { ContentEditable } from '@lexical/react/LexicalContentEditable';
+import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin';
+import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin';
+import { ListPlugin } from '@lexical/react/LexicalListPlugin';
+import { MarkdownShortcutPlugin } from '@lexical/react/LexicalMarkdownShortcutPlugin';
+import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
+import { $convertFromMarkdownString, $convertToMarkdownString, TRANSFORMERS } from '@lexical/markdown';
+import { HeadingNode, QuoteNode } from '@lexical/rich-text';
+import { LinkNode } from '@lexical/link';
+import { ListItemNode, ListNode } from '@lexical/list';
+import { CodeNode } from '@lexical/code';
 import type { ThemeId } from '../themes';
 import { getThemeMeta } from '../themes';
-import { getCollaborationDoc, releaseCollaborationDoc } from '../lib/collection';
+import { getDocumentMarkdown, setDocumentMarkdown } from '../lib/collection';
 import type { WorldDoc } from '../lib/collection';
 
 interface EditorProps {
@@ -22,50 +31,54 @@ interface CanvasMountedEditor {
 }
 
 function DocumentEditor({ doc }: { doc: WorldDoc }) {
-  const collaborationDoc = useMemo(() => getCollaborationDoc(doc.id), [doc.id]);
+  const initialMarkdown = useMemo(() => getDocumentMarkdown(doc), [doc]);
 
-  useEffect(() => {
-    const currentDocId = doc.id;
-    return () => releaseCollaborationDoc(currentDocId);
-  }, [doc.id]);
-
-  const editor = useEditor(
-    {
-      extensions: [
-        StarterKit.configure({
-          undoRedo: false,
-        }),
-        Placeholder.configure({
-          placeholder: 'Start writing your world-building notes…',
-          emptyEditorClass: 'is-editor-empty',
-        }),
-        Collaboration.configure({
-          document: collaborationDoc,
-          field: 'content',
-        }),
-      ],
-      editorProps: {
-        attributes: {
-          class: 'editor-document-content',
-        },
+  const initialConfig = useMemo(
+    () => ({
+      namespace: `litd-lexical-${doc.id}`,
+      onError(error: Error) {
+        throw error;
       },
-      immediatelyRender: false,
-    },
-    [collaborationDoc],
+      nodes: [HeadingNode, QuoteNode, ListNode, ListItemNode, LinkNode, CodeNode],
+      editorState: () => {
+        $convertFromMarkdownString(initialMarkdown, TRANSFORMERS);
+      },
+    }),
+    [doc.id, initialMarkdown],
   );
-
-  if (!editor) {
-    return (
-      <div className="editor-loading">
-        <span>Loading document…</span>
-      </div>
-    );
-  }
 
   return (
     <div className="editor-document-shell">
       <div className="editor-document-inner">
-        <EditorContent editor={editor} />
+        <LexicalComposer key={doc.id} initialConfig={initialConfig}>
+          <div className="editor-document-editor">
+            <RichTextPlugin
+              contentEditable={
+                <ContentEditable
+                  className="editor-document-content"
+                  aria-label={`Document editor for ${doc.title}`}
+                />
+              }
+              placeholder={
+                <div className="editor-document-placeholder">
+                  Start writing your world-building notes…
+                </div>
+              }
+              ErrorBoundary={LexicalErrorBoundary}
+            />
+            <HistoryPlugin />
+            <ListPlugin />
+            <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
+            <OnChangePlugin
+              ignoreSelectionChange
+              onChange={(editorState) => {
+                editorState.read(() => {
+                  setDocumentMarkdown(doc, $convertToMarkdownString(TRANSFORMERS));
+                });
+              }}
+            />
+          </div>
+        </LexicalComposer>
       </div>
     </div>
   );

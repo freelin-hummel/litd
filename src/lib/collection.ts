@@ -1,5 +1,12 @@
 import { IndexeddbPersistence } from 'y-indexeddb';
 import * as Y from 'yjs';
+import {
+  isPagePropertiesRecord,
+  parsePage,
+  serializePage,
+  type PageMetadata,
+  type PagePropertyValue,
+} from './pages';
 
 /** Category IDs are arbitrary strings; built-in categories use well-known values. */
 export type CategoryId = string;
@@ -18,6 +25,9 @@ export interface WorldDoc {
   id: string;
   title: string;
   mode: EditorMode;
+  icon?: string | null;
+  tags?: string[];
+  properties?: Record<string, PagePropertyValue>;
 }
 
 export interface WorldStore {
@@ -27,27 +37,92 @@ export interface WorldStore {
 
 const DEFAULT_DOC_MODE: EditorMode = 'document';
 
-const INITIAL_DOCS: Record<string, { title: string; mode?: EditorMode }[]> = {
-  worlds: [{ title: 'Karrakis Trade Baronies — Campaign Overview' }],
+interface InitialDocDefinition {
+  title: string;
+  mode?: EditorMode;
+  markdown?: string;
+  icon?: string | null;
+  tags?: string[];
+  properties?: Record<string, PagePropertyValue>;
+}
+
+const INITIAL_DOCS: Record<string, InitialDocDefinition[]> = {
+  worlds: [
+    {
+      title: 'Karrakis Trade Baronies — Campaign Overview',
+      tags: ['campaign', 'overview'],
+      markdown: `## Core tension
+
+The trade baronies of Karrakis sit one bad treaty away from open conflict.
+
+- Baronial fleets keep the shipping lanes open by force.
+- Independent crews profit by running cargo through disputed systems.
+- Every major faction claims an ancient charter no one can fully verify.`,
+    },
+  ],
   locations: [
-    { title: 'Cradle' },
-    { title: 'Cornucopia Station' },
+    {
+      title: 'Cradle',
+      tags: ['settlement'],
+      markdown: `Cradle is a sheltered settlement built into the basalt caverns below the equatorial cliffs.
+
+### Details
+
+- Population swells whenever caravans make planetfall.
+- The oldest tunnels still bear pre-collapse survey markings.`,
+    },
+    {
+      title: 'Cornucopia Station',
+      tags: ['orbital'],
+      markdown: `Cornucopia Station drifts above the trade routes like a rusted crown.
+
+> Dockmasters claim every berth has a price, even when the manifest says otherwise.`,
+    },
   ],
   factions: [
-    { title: 'Harrison Armory' },
-    { title: 'IPS-Northstar' },
+    {
+      title: 'Harrison Armory',
+      tags: ['manufacturer'],
+      markdown: `Harrison Armory maintains a diplomatic office in every system it considers strategically useful.`,
+    },
+    {
+      title: 'IPS-Northstar',
+      tags: ['manufacturer'],
+      markdown: `IPS-Northstar crews are respected because they show up with the parts and patience to keep colonies alive.`,
+    },
   ],
   characters: [
-    { title: 'Navarro (PC — Call Sign: PILGRIM)' },
-    { title: 'Director Chen (NPC)' },
+    {
+      title: 'Navarro (PC — Call Sign: PILGRIM)',
+      tags: ['pilot', 'pc'],
+      markdown: `- Callsign: **PILGRIM**
+- Reputation: Reliable under fire, suspicious off-duty
+- Hook: Owes a favor to the smugglers on Cornucopia Station`,
+    },
+    {
+      title: 'Director Chen (NPC)',
+      tags: ['npc'],
+      markdown: `Director Chen handles logistics for the station and keeps two contradictory ledgers: one for the public, one for survival.`,
+    },
   ],
-  lore: [{ title: 'The Deimos Event' }],
+  lore: [
+    {
+      title: 'The Deimos Event',
+      tags: ['history'],
+      markdown: `The Deimos Event marked the moment routine salvage became a sector-wide panic.
+
+1. A derelict blink gate began broadcasting obsolete military ciphers.
+2. Three expeditions vanished investigating the signal.
+3. The story became myth before the evidence returned.`,
+    },
+  ],
   bestiary: [{ title: 'Ultra — Horus Goblin', mode: 'canvas' }],
 };
 
 /** localStorage keys for persisting metadata. */
 const CATEGORIES_STORAGE_KEY = 'litd:categories';
 const DOCS_STORAGE_KEY = 'litd:docs';
+const PAGE_STORAGE_KEY_PREFIX = 'litd:page:';
 
 type StoredDocs = Record<string, WorldDoc>;
 
@@ -70,6 +145,26 @@ export function saveCategories(categories: Category[]): void {
 function saveDocs(docs: StoredDocs): void {
   try {
     localStorage.setItem(DOCS_STORAGE_KEY, JSON.stringify(docs));
+  } catch {
+    // localStorage may be unavailable (e.g. private browsing quota exceeded)
+  }
+}
+
+function getPageStorageKey(docId: string): string {
+  return `${PAGE_STORAGE_KEY_PREFIX}${docId}`;
+}
+
+function loadSerializedPage(docId: string): string | null {
+  try {
+    return localStorage.getItem(getPageStorageKey(docId));
+  } catch {
+    return null;
+  }
+}
+
+function saveSerializedPage(docId: string, serialized: string): void {
+  try {
+    localStorage.setItem(getPageStorageKey(docId), serialized);
   } catch {
     // localStorage may be unavailable (e.g. private browsing quota exceeded)
   }
@@ -108,9 +203,58 @@ function isValidDocs(value: unknown): value is StoredDocs {
       typeof record.id === 'string' &&
       record.id === id &&
       typeof record.title === 'string' &&
-      isEditorMode(record.mode)
+      isEditorMode(record.mode) &&
+      (record.icon === undefined || record.icon === null || typeof record.icon === 'string') &&
+      (record.tags === undefined ||
+        (Array.isArray(record.tags) && record.tags.every((tag) => typeof tag === 'string'))) &&
+      (record.properties === undefined || isPagePropertiesRecord(record.properties))
     );
   });
+}
+
+export function getDocPageMetadata(doc: WorldDoc): PageMetadata {
+  return {
+    title: doc.title,
+    icon: doc.icon ?? null,
+    tags: doc.tags ?? [],
+    properties: doc.properties ?? {},
+  };
+}
+
+function applyPageMetadata(doc: WorldDoc, metadata: PageMetadata): void {
+  doc.title = metadata.title;
+  doc.icon = metadata.icon;
+  doc.tags = metadata.tags;
+  doc.properties = metadata.properties;
+}
+
+/**
+ * Legacy TipTap/Yjs document bodies never had a canonical markdown export format.
+ * When a document page is opened without serialized markdown, we bootstrap a new
+ * markdown-backed page from the stored metadata and optional seed body content.
+ */
+function hydrateStoredDocumentPage(doc: WorldDoc, seedMarkdown = ''): void {
+  if (doc.mode !== 'document') return;
+
+  const serialized = loadSerializedPage(doc.id);
+  if (!serialized) {
+    saveSerializedPage(
+      doc.id,
+      serializePage({
+        metadata: getDocPageMetadata(doc),
+        markdown: seedMarkdown,
+      }),
+    );
+    return;
+  }
+
+  const parsed = parsePage(serialized, getDocPageMetadata(doc));
+  applyPageMetadata(doc, parsed.metadata);
+
+  const normalized = serializePage(parsed);
+  if (normalized !== serialized) {
+    saveSerializedPage(doc.id, normalized);
+  }
 }
 
 /** Derive a reasonable singular form of a category label for the "New <X>" button. */
@@ -171,7 +315,11 @@ function createSeedStore(): WorldStore {
         id,
         title: def.title,
         mode: def.mode ?? DEFAULT_DOC_MODE,
+        icon: def.icon ?? null,
+        tags: def.tags ?? [],
+        properties: def.properties ?? {},
       };
+      hydrateStoredDocumentPage(docs[id], def.markdown ?? '');
       category.docIds.push(id);
     }
   }
@@ -180,6 +328,8 @@ function createSeedStore(): WorldStore {
 }
 
 function reconcileStore(categories: Category[], docs: StoredDocs): WorldStore {
+  Object.values(docs).forEach((doc) => hydrateStoredDocumentPage(doc));
+
   const reconciledCategories = categories.map((category) => ({
     ...category,
     docIds: category.docIds.filter((docId) => {
@@ -224,7 +374,11 @@ export function addDocToCategory(
     id,
     title,
     mode: DEFAULT_DOC_MODE,
+    icon: null,
+    tags: [],
+    properties: {},
   };
+  hydrateStoredDocumentPage(store.docs[id]);
 
   const category = store.categories.find((c) => c.id === categoryId);
   if (category) {
@@ -248,6 +402,62 @@ export function setDocMode(store: WorldStore, docId: string, mode: EditorMode): 
   const doc = store.docs[docId];
   if (!doc || doc.mode === mode) return;
   doc.mode = mode;
+  if (mode === 'document') {
+    hydrateStoredDocumentPage(doc);
+  }
+  saveDocs(store.docs);
+}
+
+function getParsedDocumentPage(doc: WorldDoc) {
+  const serialized = loadSerializedPage(doc.id);
+  if (!serialized) {
+    hydrateStoredDocumentPage(doc);
+    return parsePage(loadSerializedPage(doc.id) ?? '', getDocPageMetadata(doc));
+  }
+
+  return parsePage(serialized, getDocPageMetadata(doc));
+}
+
+export function getDocumentMarkdown(doc: WorldDoc): string {
+  if (doc.mode !== 'document') return '';
+  return getParsedDocumentPage(doc).markdown;
+}
+
+export function setDocumentMarkdown(doc: WorldDoc, markdown: string): void {
+  if (doc.mode !== 'document') return;
+  saveSerializedPage(
+    doc.id,
+    serializePage({
+      metadata: getDocPageMetadata(doc),
+      markdown,
+    }),
+  );
+}
+
+export function exportDocumentPage(store: WorldStore, docId: string): string | null {
+  const doc = store.docs[docId];
+  if (!doc || doc.mode !== 'document') return null;
+
+  const page = getParsedDocumentPage(doc);
+  const serialized = serializePage({
+    metadata: getDocPageMetadata(doc),
+    markdown: page.markdown,
+  });
+  saveSerializedPage(doc.id, serialized);
+  return serialized;
+}
+
+export function importDocumentPage(
+  store: WorldStore,
+  docId: string,
+  serialized: string,
+): void {
+  const doc = store.docs[docId];
+  if (!doc || doc.mode !== 'document') return;
+
+  const page = parsePage(serialized, getDocPageMetadata(doc));
+  applyPageMetadata(doc, page.metadata);
+  saveSerializedPage(doc.id, serializePage(page));
   saveDocs(store.docs);
 }
 

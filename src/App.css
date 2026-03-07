@@ -322,6 +322,10 @@ body {
   box-shadow: var(--theme-shadow-elevated);
 }
 
+.editor-document-editor {
+  position: relative;
+}
+
 .editor-document-content {
   min-height: calc(100vh - 180px);
   color: var(--theme-text);
@@ -383,6 +387,14 @@ body {
 .editor-document-content pre code {
   background: transparent;
   padding: 0;
+}
+
+.editor-document-placeholder {
+  color: var(--theme-text-muted);
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
 }
 
 .editor-document-content .is-editor-empty:first-child::before {

@@ -4,7 +4,7 @@ A collaborative tabletop RPG worldbuilding application powered by [TipTap](https
 
 ## Features
 
-- **Rich document editing** via TipTap with Yjs-backed collaborative document state
+- **Rich document editing** via Lexical with markdown-backed page serialization
 - **Freeform canvas mode** via tldraw for maps, diagrams, and relationship boards
 - **TTRPG-organised sidebar** with six worldbuilding categories:
   - Worlds · Locations · Factions · Characters · Lore & History · Bestiary
@@ -78,7 +78,7 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 | Layer | Technology |
 |-------|-----------|
-| Document editor | [TipTap](https://tiptap.dev/) + StarterKit + Collaboration |
+| Document editor | [Lexical](https://lexical.dev/) + markdown import/export |
 | Canvas | [tldraw](https://tldraw.dev/) |
 | Data / CRDT | Yjs + `y-indexeddb` |
 | Icons | [lucide-react](https://lucide.dev/) |
