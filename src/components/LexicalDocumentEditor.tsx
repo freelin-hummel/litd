@@ -7,18 +7,18 @@ import { LexicalCollaboration } from '@lexical/react/LexicalCollaborationContext
 import { ContentEditable } from '@lexical/react/LexicalContentEditable';
 import type { InitialConfigType } from '@lexical/react/LexicalComposer';
 import { LexicalComposer } from '@lexical/react/LexicalComposer';
+import { DraggableBlockPlugin_EXPERIMENTAL } from '@lexical/react/LexicalDraggableBlockPlugin';
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
 import { MarkdownShortcutPlugin } from '@lexical/react/LexicalMarkdownShortcutPlugin';
-import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin';
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { HeadingNode, QuoteNode } from '@lexical/rich-text';
 import { $getRoot } from 'lexical';
 import type { LexicalEditor } from 'lexical';
-import { Download, Upload } from 'lucide-react';
-import { useCallback, useMemo, useRef } from 'react';
+import { Download, GripVertical, Upload } from 'lucide-react';
+import type { MutableRefObject } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Button } from '../primitives';
-import { createDocumentPage } from '../lib/document';
 import type { DocumentPage } from '../lib/document';
 import { getCollaborationSession } from '../lib/collection';
 
@@ -26,7 +26,6 @@ interface LexicalDocumentEditorProps {
   docId: string;
   docTitle: string;
   page: DocumentPage;
-  onPageChange: (page: DocumentPage) => void;
 }
 
 function createMarkdownFilename(title: string): string {
@@ -39,39 +38,18 @@ function createMarkdownFilename(title: string): string {
   return `${slug || 'document'}.md`;
 }
 
-function DocumentPlaceholder() {
+function DraggableBlockMenu({ menuRef }: { menuRef: MutableRefObject<HTMLDivElement | null> }) {
   return (
-    <div className="editor-document-placeholder" aria-hidden="true">
-      Start writing your world-building notes…
+    <div ref={(node) => { menuRef.current = node; }} className="editor-document-drag-menu" aria-hidden="true">
+      <span className="editor-document-drag-handle">
+        <GripVertical size={14} strokeWidth={1.8} />
+      </span>
     </div>
   );
 }
 
-function MarkdownPersistencePlugin({
-  initialMarkdown,
-  onPageChange,
-}: {
-  initialMarkdown: string;
-  onPageChange: (page: DocumentPage) => void;
-}) {
-  const lastSavedMarkdownRef = useRef(initialMarkdown);
-
-  return (
-    <OnChangePlugin
-      ignoreSelectionChange
-      onChange={(editorState) => {
-        editorState.read(() => {
-          const markdown = $convertToMarkdownString(TRANSFORMERS);
-          if (markdown === lastSavedMarkdownRef.current) {
-            return;
-          }
-
-          lastSavedMarkdownRef.current = markdown;
-          onPageChange(createDocumentPage(markdown));
-        });
-      }}
-    />
-  );
+function DraggableBlockTargetLine({ targetLineRef }: { targetLineRef: MutableRefObject<HTMLDivElement | null> }) {
+  return <div ref={(node) => { targetLineRef.current = node; }} className="editor-document-drag-target-line" aria-hidden="true" />;
 }
 
 function MarkdownTransferPlugin({ docTitle }: { docTitle: string }) {
@@ -144,13 +122,16 @@ export function LexicalDocumentEditor({
   docId,
   docTitle,
   page,
-  onPageChange,
 }: LexicalDocumentEditorProps) {
   const session = useMemo(() => getCollaborationSession(docId), [docId]);
   const initialMarkdownRef = useRef(page.markdown);
+  const [anchorElem, setAnchorElem] = useState<HTMLElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const targetLineRef = useRef<HTMLDivElement | null>(null);
 
   const initialConfig = useMemo<InitialConfigType>(
     () => ({
+      editorState: null,
       namespace: 'litd-document-editor',
       nodes: [HeadingNode, QuoteNode, ListNode, ListItemNode, CodeNode, LinkNode],
       onError: (error: Error) => {
@@ -166,9 +147,11 @@ export function LexicalDocumentEditor({
 
   const initialEditorState = useCallback(
     (editor: LexicalEditor) => {
-      // Seed the initial Lexical state once from the page snapshot that was active
-      // when this editor instance mounted. Subsequent edits flow through Yjs and
-      // onPageChange without needing to recreate the bootstrap callback.
+      // One-time legacy bootstrap from stored markdown if the collaboration doc is empty.
+      if (!initialMarkdownRef.current.trim()) {
+        return;
+      }
+
       editor.update(() => {
         $convertFromMarkdownString(initialMarkdownRef.current, TRANSFORMERS);
       });
@@ -178,7 +161,7 @@ export function LexicalDocumentEditor({
 
   return (
     <div className="editor-document-shell">
-      <div className="editor-document-inner">
+      <div className="editor-document-inner" ref={setAnchorElem}>
         <LexicalComposer initialConfig={initialConfig}>
           <LexicalCollaboration>
             <CollaborationPlugin
@@ -193,11 +176,20 @@ export function LexicalDocumentEditor({
             <MarkdownTransferPlugin docTitle={docTitle} />
             <RichTextPlugin
               contentEditable={<ContentEditable className="editor-document-content" />}
-              placeholder={<DocumentPlaceholder />}
+              placeholder={null}
               ErrorBoundary={LexicalErrorBoundary}
             />
             <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
-            <MarkdownPersistencePlugin initialMarkdown={page.markdown} onPageChange={onPageChange} />
+            {anchorElem ? (
+              <DraggableBlockPlugin_EXPERIMENTAL
+                anchorElem={anchorElem}
+                menuRef={menuRef}
+                targetLineRef={targetLineRef}
+                menuComponent={<DraggableBlockMenu menuRef={menuRef} />}
+                targetLineComponent={<DraggableBlockTargetLine targetLineRef={targetLineRef} />}
+                isOnMenu={(element) => menuRef.current?.contains(element) ?? false}
+              />
+            ) : null}
           </LexicalCollaboration>
         </LexicalComposer>
       </div>

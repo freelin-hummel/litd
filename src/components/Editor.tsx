@@ -3,14 +3,13 @@ import { DefaultQuickActions, Tldraw } from 'tldraw';
 import { Zap } from 'lucide-react';
 import type { ThemeId } from '../themes';
 import { getThemeMeta } from '../themes';
-import { releaseCollaborationSession, saveDocumentPage } from '../lib/collection';
-import type { WorldDoc, WorldStore } from '../lib/collection';
+import { releaseCollaborationSession } from '../lib/collection';
+import type { WorldDoc } from '../lib/collection';
 import { LexicalDocumentEditor } from './LexicalDocumentEditor';
 
 interface EditorProps {
   doc: WorldDoc | null;
   theme: ThemeId;
-  store: WorldStore;
 }
 
 interface CanvasMountedEditor {
@@ -19,20 +18,16 @@ interface CanvasMountedEditor {
   };
 }
 
-function DocumentEditor({ doc, store }: { doc: WorldDoc; store: WorldStore }) {
+function DocumentEditor({ doc }: { doc: WorldDoc }) {
   useEffect(() => {
-    const currentDocId = doc.id;
-    return () => releaseCollaborationSession(currentDocId);
+    const docId = doc.id;
+
+    return () => {
+      releaseCollaborationSession(docId);
+    };
   }, [doc.id]);
 
-  return (
-    <LexicalDocumentEditor
-      docId={doc.id}
-      docTitle={doc.title}
-      page={doc.page}
-      onPageChange={(page) => saveDocumentPage(store, doc.id, page)}
-    />
-  );
+  return <LexicalDocumentEditor key={doc.id} docId={doc.id} docTitle={doc.title} page={doc.page} />;
 }
 
 const TLDRAW_COMPONENTS = {
@@ -69,7 +64,7 @@ function CanvasEditor({ doc, theme }: { doc: WorldDoc; theme: ThemeId }) {
   );
 }
 
-export function Editor({ doc, theme, store }: EditorProps) {
+export function Editor({ doc, theme }: EditorProps) {
   if (!doc) {
     return (
       <div className="editor-empty">
@@ -87,9 +82,9 @@ export function Editor({ doc, theme, store }: EditorProps) {
   return (
     <div className="editor-host">
       {doc.mode === 'canvas' ? (
-        <CanvasEditor doc={doc} theme={theme} />
+        <CanvasEditor key={doc.id} doc={doc} theme={theme} />
       ) : (
-        <DocumentEditor doc={doc} store={store} />
+        <DocumentEditor key={doc.id} doc={doc} />
       )}
     </div>
   );

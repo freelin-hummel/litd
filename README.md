@@ -9,7 +9,7 @@ A collaborative tabletop RPG worldbuilding application powered by [Lexical](http
 - **TTRPG-organised sidebar** with six worldbuilding categories:
   - Worlds · Locations · Factions · Characters · Lore & History · Bestiary
 - **Create new documents** in any category with a single click
-- **CRDT-backed document model** using Yjs with IndexedDB persistence, ready for Hocuspocus-style multiplayer sync
+- **CRDT-backed document model** using Yjs, Hocuspocus, and IndexedDB persistence
 - **Two built-in themes** with an instant switcher in the sidebar footer
 - **Lucide icons** throughout — no emoji
 
@@ -69,10 +69,21 @@ Feature components should prefer composing these primitives rather than using Ra
 
 ```bash
 npm install
+npm run hocuspocus:dev
 npm run dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173) in your browser.
+
+The editor connects to `ws://127.0.0.1:1234` by default.
+
+Environment variables:
+
+- `HOCUSPOCUS_HOST` and `HOCUSPOCUS_PORT` configure the local collaboration server
+- `HOCUSPOCUS_DB_PATH` overrides the SQLite file used by the local collaboration server
+- `HOCUSPOCUS_TOKEN` enables simple token auth on the server
+- `VITE_HOCUSPOCUS_URL` points the web app at a different Hocuspocus endpoint
+- `VITE_HOCUSPOCUS_TOKEN` sends the matching client token when auth is enabled
 
 ## Tech Stack
 
@@ -80,30 +91,24 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 |-------|-----------|
 | Document editor | [Lexical](https://lexical.dev/) + Markdown + Yjs collaboration |
 | Canvas | [tldraw](https://tldraw.dev/) |
-| Data / CRDT | Yjs + `y-indexeddb` |
+| Data / CRDT | Yjs + Hocuspocus + `y-indexeddb` |
 | Icons | [lucide-react](https://lucide.dev/) |
 | UI framework | React 18 + TypeScript |
 | Build tool | Vite 5 |
 
-## Adding Real-Time Collaboration
+## Collaboration
 
-The Lexical document layer is backed by [Yjs](https://github.com/yjs/yjs) CRDTs and persists locally through
-`y-indexeddb`. To attach remote multi-user sync, reuse the `Y.Doc` returned by
-`getCollaborationSession(docId).doc`:
+The Lexical document layer uses [Yjs](https://github.com/yjs/yjs) as the CRDT model, synchronizes through
+Hocuspocus, persists shared state in a local SQLite database, and keeps a local `y-indexeddb` cache for
+offline continuity.
 
-```ts
-import { HocuspocusProvider } from '@hocuspocus/provider';
-import { getCollaborationSession } from './src/lib/collection';
+For local development, run the collaboration server and Vite app in separate terminals:
 
-const { doc } = getCollaborationSession(docId);
-
-const provider = new HocuspocusProvider({
-  url: 'wss://your-server.example.com',
-  name: 'litd-room',
-  document: doc,
-});
+```bash
+npm run hocuspocus:dev
+npm run dev
 ```
 
-Document pages now also persist markdown snapshots in local document metadata for import/export and editor
-bootstrapping. Because Lexical uses a different Yjs schema than the previous TipTap editor, existing
-TipTap-specific IndexedDB payloads are not reused directly.
+Each document page uses its page id as the Hocuspocus room name.
+
+The default local SQLite database is stored at `.data/hocuspocus.sqlite`.

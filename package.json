@@ -6,11 +6,16 @@
   "description": "Collaborative TTRPG worldbuilding app powered by Lexical and tldraw",
   "scripts": {
     "dev": "vite",
+    "hocuspocus:dev": "node --watch hocuspocus/server.mjs",
+    "collab:dev": "npm run hocuspocus:dev",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@hocuspocus/extension-sqlite": "^3.4.4",
+    "@hocuspocus/provider": "^3.4.4",
+    "@hocuspocus/server": "^3.4.4",
     "@lexical/code": "^0.41.0",
     "@lexical/link": "^0.41.0",
     "@lexical/list": "^0.41.0",

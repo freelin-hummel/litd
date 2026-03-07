@@ -84,7 +84,7 @@ function App() {
             onModeChange={handleModeChange}
           />
         )}
-        <Editor doc={activePage} theme={theme} store={store} />
+        <Editor doc={activePage} theme={theme} />
       </main>
     </div>
   );
