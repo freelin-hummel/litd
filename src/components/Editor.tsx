@@ -114,6 +114,10 @@ function DocumentPlaceholder() {
   return <div className="editor-document-placeholder">{DOCUMENT_PLACEHOLDER}</div>;
 }
 
+function isToolbarBlockType(value: string): value is (typeof BLOCK_TYPE_OPTIONS)[number] {
+  return BLOCK_TYPE_OPTIONS.includes(value as (typeof BLOCK_TYPE_OPTIONS)[number]);
+}
+
 function getBlockTypeFromEditor(editor: LexicalEditor): BlockType {
   return editor.getEditorState().read(() => {
     const selection = $getSelection();
@@ -276,6 +280,10 @@ function DocumentToolbarPlugin() {
   const keepSelection = useCallback((event: MouseEvent<HTMLElement>) => {
     event.preventDefault();
   }, []);
+  const getToolbarButtonClassName = useCallback(
+    (isActive: boolean) => (isActive ? 'editor-document-toolbar-btn is-active' : 'editor-document-toolbar-btn'),
+    [],
+  );
 
   return (
     <div className="editor-document-chrome">
@@ -298,15 +306,7 @@ function DocumentToolbarPlugin() {
               <DropdownMenuRadioGroup
                 value={blockType}
                 onValueChange={(value) => {
-                  if (
-                    value === 'paragraph' ||
-                    value === 'quote' ||
-                    value === 'ul' ||
-                    value === 'ol' ||
-                    value === 'h1' ||
-                    value === 'h2' ||
-                    value === 'h3'
-                  ) {
+                  if (isToolbarBlockType(value)) {
                     applyBlockType(editor, value);
                   }
                 }}
@@ -323,7 +323,7 @@ function DocumentToolbarPlugin() {
 
         <div className="editor-document-toolbar-group">
           <IconButton
-            className={activeFormats.bold ? 'editor-document-toolbar-btn is-active' : 'editor-document-toolbar-btn'}
+            className={getToolbarButtonClassName(activeFormats.bold)}
             label="Bold"
             variant="ghost"
             size="sm"
@@ -333,7 +333,7 @@ function DocumentToolbarPlugin() {
             <Bold size={14} aria-hidden="true" />
           </IconButton>
           <IconButton
-            className={activeFormats.italic ? 'editor-document-toolbar-btn is-active' : 'editor-document-toolbar-btn'}
+            className={getToolbarButtonClassName(activeFormats.italic)}
             label="Italic"
             variant="ghost"
             size="sm"
@@ -343,7 +343,7 @@ function DocumentToolbarPlugin() {
             <Italic size={14} aria-hidden="true" />
           </IconButton>
           <IconButton
-            className={activeFormats.underline ? 'editor-document-toolbar-btn is-active' : 'editor-document-toolbar-btn'}
+            className={getToolbarButtonClassName(activeFormats.underline)}
             label="Underline"
             variant="ghost"
             size="sm"
@@ -353,7 +353,7 @@ function DocumentToolbarPlugin() {
             <Underline size={14} aria-hidden="true" />
           </IconButton>
           <IconButton
-            className={activeFormats.strikethrough ? 'editor-document-toolbar-btn is-active' : 'editor-document-toolbar-btn'}
+            className={getToolbarButtonClassName(activeFormats.strikethrough)}
             label="Strikethrough"
             variant="ghost"
             size="sm"
@@ -366,7 +366,7 @@ function DocumentToolbarPlugin() {
 
         <div className="editor-document-toolbar-group">
           <IconButton
-            className={blockType === 'ul' ? 'editor-document-toolbar-btn is-active' : 'editor-document-toolbar-btn'}
+            className={getToolbarButtonClassName(blockType === 'ul')}
             label="Bullet list"
             variant="ghost"
             size="sm"
@@ -381,7 +381,7 @@ function DocumentToolbarPlugin() {
             <List size={14} aria-hidden="true" />
           </IconButton>
           <IconButton
-            className={blockType === 'ol' ? 'editor-document-toolbar-btn is-active' : 'editor-document-toolbar-btn'}
+            className={getToolbarButtonClassName(blockType === 'ol')}
             label="Numbered list"
             variant="ghost"
             size="sm"
@@ -396,7 +396,7 @@ function DocumentToolbarPlugin() {
             <ListOrdered size={14} aria-hidden="true" />
           </IconButton>
           <IconButton
-            className={blockType === 'quote' ? 'editor-document-toolbar-btn is-active' : 'editor-document-toolbar-btn'}
+            className={getToolbarButtonClassName(blockType === 'quote')}
             label="Quote"
             variant="ghost"
             size="sm"
@@ -473,6 +473,7 @@ function DocumentEditor({ doc }: { doc: WorldDoc }) {
       namespace: `litd-document-${doc.id}`,
       nodes: [HeadingNode, QuoteNode, ListNode, ListItemNode],
       onError(error: Error) {
+        console.error(`Failed to initialize Lexical editor for document "${doc.id}".`, error);
         throw error;
       },
       editorState(editor: LexicalEditor) {
@@ -481,7 +482,10 @@ function DocumentEditor({ doc }: { doc: WorldDoc }) {
         try {
           editor.setEditorState(editor.parseEditorState(initialSerializedState));
         } catch (error) {
-          console.error('Failed to restore the saved document state.', error);
+          console.error(
+            `Failed to restore saved document state for "${doc.id}". Starting with an empty document instead.`,
+            error,
+          );
         }
       },
     }),

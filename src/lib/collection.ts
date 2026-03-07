@@ -53,6 +53,7 @@ type StoredDocs = Record<string, WorldDoc>;
 
 const yDocCache = new Map<string, Y.Doc>();
 const yPersistenceCache = new Map<string, IndexeddbPersistence>();
+const DOCUMENT_EDITOR_STATE_STORAGE_KEY = 'litd:lexical:editor-state';
 
 function generateDocId(): string {
   return `doc-${crypto.randomUUID()}`;
@@ -272,21 +273,24 @@ export function isCollaborationDocSynced(docId: string): boolean {
   return yPersistenceCache.get(docId)?.synced ?? false;
 }
 
-export async function loadDocumentEditorState(docId: string): Promise<string | null> {
+function ensureCollaborationPersistence(docId: string): IndexeddbPersistence | null {
   getCollaborationDoc(docId);
-  const persistence = yPersistenceCache.get(docId);
+  return yPersistenceCache.get(docId) ?? null;
+}
+
+export async function loadDocumentEditorState(docId: string): Promise<string | null> {
+  const persistence = ensureCollaborationPersistence(docId);
   if (!persistence) return null;
 
   await waitForCollaborationDocSync(docId);
-  const value = await persistence.get('lexical-editor-state');
+  const value = await persistence.get(DOCUMENT_EDITOR_STATE_STORAGE_KEY);
   return typeof value === 'string' ? value : null;
 }
 
 export async function saveDocumentEditorState(docId: string, editorState: string): Promise<void> {
-  getCollaborationDoc(docId);
-  const persistence = yPersistenceCache.get(docId);
+  const persistence = ensureCollaborationPersistence(docId);
   if (!persistence) return;
-  await persistence.set('lexical-editor-state', editorState);
+  await persistence.set(DOCUMENT_EDITOR_STATE_STORAGE_KEY, editorState);
 }
 
 export function releaseCollaborationDoc(docId: string): void {
