@@ -53,8 +53,13 @@ const INITIAL_DOCS: Record<string, { title: string; mode?: EditorMode }[]> = {
 /** localStorage keys for persisting metadata. */
 const CATEGORIES_STORAGE_KEY = 'litd:categories';
 const DOCS_STORAGE_KEY = 'litd:docs';
-/** Keep the legacy prefix so existing local document data keeps loading after the editor migration. */
-const COLLABORATION_STORAGE_PREFIX = 'litd:tiptap:';
+/**
+ * Keep the legacy prefix so existing local document data keeps loading after the
+ * Lexical migration. We can only rename this once we add an explicit persisted
+ * data migration for already-saved browser documents.
+ * TODO: Replace this with a generic prefix once persisted-doc migration support exists.
+ */
+const LEGACY_TIPTAP_STORAGE_PREFIX = 'litd:tiptap:';
 
 type StoredDocs = Record<string, WorldDoc>;
 
@@ -266,7 +271,7 @@ export function getCollaborationHandle(docId: string): CollaborationHandle {
   }
 
   const yDoc = new Y.Doc();
-  const persistence = new IndexeddbPersistence(`${COLLABORATION_STORAGE_PREFIX}${docId}`, yDoc);
+  const persistence = new IndexeddbPersistence(`${LEGACY_TIPTAP_STORAGE_PREFIX}${docId}`, yDoc);
   yDocCache.set(docId, yDoc);
   yPersistenceCache.set(docId, persistence);
   return { doc: yDoc, persistence };

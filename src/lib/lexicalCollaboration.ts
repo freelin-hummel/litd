@@ -1,9 +1,11 @@
 import { Awareness, applyAwarenessUpdate, encodeAwarenessUpdate } from 'y-protocols/awareness';
-import type { Provider, ProviderAwareness } from '@lexical/yjs';
+import type { Provider, ProviderAwareness, UserState } from '@lexical/yjs';
 import * as Y from 'yjs';
 import { getCollaborationHandle } from './collection';
 
 type ProviderStatus = { status: 'connected' | 'disconnected' };
+type ProviderLocalState = ReturnType<ProviderAwareness['getLocalState']>;
+type ProviderStateMap = ReturnType<ProviderAwareness['getStates']>;
 type ProviderListenerMap = {
   reload: (doc: Y.Doc) => void;
   status: (status: ProviderStatus) => void;
@@ -17,7 +19,7 @@ type CollaborationMessage =
   | { type: 'sync-request'; source: number }
   | { type: 'sync-response'; source: number; state: Uint8Array; awareness?: Uint8Array };
 
-const channelName = (docId: string) => `litd:lexical:${docId}`;
+const channelName = (docId: string) => `litd:collab:${docId}`;
 
 class LocalLexicalProvider implements Provider {
   readonly awareness: ProviderAwareness;
@@ -36,6 +38,25 @@ class LocalLexicalProvider implements Provider {
   private channel: BroadcastChannel | null = null;
   private connected = false;
 
+  private normalizeUserState(state: Record<string, unknown> | null): UserState | null {
+    if (state === null) return null;
+
+    return {
+      anchorPos: null,
+      color: '',
+      focusing: false,
+      focusPos: null,
+      name: '',
+      awarenessData: {},
+      ...state,
+    };
+  }
+
+  /**
+   * @param docId Collaboration room/document identifier used for broadcast scoping.
+   * @param doc Shared Yjs document instance reused from the app's collaboration cache.
+   * @param whenSynced Resolves once IndexedDB persistence has applied stored updates into the doc.
+   */
   constructor(
     private readonly docId: string,
     private readonly doc: Y.Doc,
@@ -43,8 +64,15 @@ class LocalLexicalProvider implements Provider {
   ) {
     this.awarenessInstance = new Awareness(doc);
     this.awareness = {
-      getLocalState: () => this.awarenessInstance.getLocalState() as ProviderAwareness['getLocalState'] extends () => infer T ? T : never,
-      getStates: () => this.awarenessInstance.getStates() as ProviderAwareness['getStates'] extends () => infer T ? T : never,
+      getLocalState: (): ProviderLocalState =>
+        this.normalizeUserState(this.awarenessInstance.getLocalState()),
+      getStates: (): ProviderStateMap =>
+        new Map(
+          Array.from(this.awarenessInstance.getStates(), ([clientId, state]) => [
+            clientId,
+            this.normalizeUserState(state as Record<string, unknown>) as UserState,
+          ]),
+        ),
       off: (type, cb) => {
         this.awarenessInstance.off(type, cb);
       },
@@ -149,7 +177,7 @@ class LocalLexicalProvider implements Provider {
 
   private readonly handleMessage = (event: MessageEvent<CollaborationMessage>): void => {
     const message = event.data;
-    if (!message || message.source === this.doc.clientID) return;
+    if (message.source === this.doc.clientID) return;
 
     switch (message.type) {
       case 'doc-update':
@@ -181,6 +209,15 @@ class LocalLexicalProvider implements Provider {
   };
 }
 
+/**
+ * Creates the Lexical provider for a document and ensures the shared Yjs doc is
+ * registered in Lexical's yjsDocMap for the lifetime of that editor instance.
+ * The corresponding doc teardown remains the caller's responsibility via
+ * releaseCollaborationDoc(docId) when the editor unmounts or switches pages.
+ *
+ * @param id Collaboration room/document identifier.
+ * @param yjsDocMap Lexical's per-editor Yjs doc registry used by CollaborationPlugin.
+ */
 export function createLexicalCollaborationProvider(id: string, yjsDocMap: Map<string, Y.Doc>): Provider {
   const { doc, persistence } = getCollaborationHandle(id);
   yjsDocMap.set(id, doc);
