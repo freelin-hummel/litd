@@ -113,6 +113,7 @@ export interface RelationRecord {
  *   of truth that should be stored and migrated over time
  */
 export interface PageContentModel {
+  /** Tracks canonical schema evolution for storage normalization and migrations. */
   schemaVersion: number;
   page: PageRecord;
   blocks: Record<BlockId, BlockRecord>;

@@ -271,17 +271,17 @@ export function Sidebar({
                             <Pencil size={11} aria-hidden="true" />
                           </IconButton>
                         </DropdownMenuTrigger>
-                         <DropdownMenuContent align="end">
-                           <DropdownMenuItem onSelect={() => startRenaming(category.id, category.label)}>
-                              <Pencil size={12} aria-hidden="true" />
-                              Rename collection
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem danger onSelect={() => requestDeleteCategory(category.id)}>
-                              <Trash2 size={12} aria-hidden="true" />
-                              Delete collection
-                            </DropdownMenuItem>
-                         </DropdownMenuContent>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onSelect={() => startRenaming(category.id, category.label)}>
+                            <Pencil size={12} aria-hidden="true" />
+                            Rename collection
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem danger onSelect={() => requestDeleteCategory(category.id)}>
+                            <Trash2 size={12} aria-hidden="true" />
+                            Delete collection
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
                   )}

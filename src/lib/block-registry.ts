@@ -5,6 +5,13 @@ import { ListItemNode, ListNode } from '@lexical/list';
 import { HeadingNode, QuoteNode } from '@lexical/rich-text';
 import type { Klass, LexicalNode } from 'lexical';
 
+/**
+ * Lightweight descriptive schema for shared block metadata. Values are
+ * human-readable field descriptors today so renderers/importers can expose and
+ * persist block metadata consistently before a stricter validation layer exists.
+ */
+export type BlockMetadataSchema = Record<string, string>;
+
 export interface BlockTypeRegistration {
   type: string;
   label: string;
@@ -17,7 +24,7 @@ export interface BlockTypeRegistration {
   canvas: {
     projection: 'card' | 'inline' | 'hidden';
   };
-  metadataSchema: Record<string, unknown>;
+  metadataSchema: BlockMetadataSchema;
   supportsMechanics: boolean;
 }
 
