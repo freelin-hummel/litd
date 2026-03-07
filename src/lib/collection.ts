@@ -116,9 +116,10 @@ function isValidDocs(value: unknown): value is StoredDocs {
 /** Derive a reasonable singular form of a category label for the "New <X>" button. */
 function deriveSingular(label: string): string {
   const t = label.trim();
-  if (t.toLowerCase().endsWith('ies') && t.length > 3) return t.slice(0, -3) + 'y';
-  if (t.toLowerCase().endsWith('es') && t.length > 3) return t.slice(0, -2);
-  if (t.toLowerCase().endsWith('s') && t.length > 2) return t.slice(0, -1);
+  const lower = t.toLowerCase();
+  if (lower.endsWith('ies') && t.length > 3) return t.slice(0, -3) + 'y';
+  if (/(xes|zes|ches|shes|sses)$/.test(lower) && t.length > 3) return t.slice(0, -2);
+  if (lower.endsWith('s') && !lower.endsWith('ss') && t.length > 2) return t.slice(0, -1);
   return t;
 }
 
