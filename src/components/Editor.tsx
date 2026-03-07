@@ -29,10 +29,6 @@ interface CanvasMountedEditor {
 const DOCUMENT_PLACEHOLDER = 'Start writing your world-building notes…';
 const DOCUMENT_EDITOR_STORAGE_PREFIX = 'litd:lexical-document:';
 
-function handleLexicalError(error: Error): never {
-  throw error;
-}
-
 function DocumentPlaceholder() {
   return <div className="editor-document-placeholder">{DOCUMENT_PLACEHOLDER}</div>;
 }
@@ -62,13 +58,19 @@ function saveDocumentState(docId: string, editorState: EditorState): void {
 
 function DocumentEditor({ doc }: { doc: WorldDoc }) {
   const initialConfig = useMemo(
-    () => ({
-      namespace: 'litd-document-editor',
-      nodes: [HeadingNode, QuoteNode, ListNode, ListItemNode],
-      onError: handleLexicalError,
-      theme: {},
-      editorState: loadDocumentState(doc.id),
-    }),
+    () => {
+      const savedEditorState = loadDocumentState(doc.id);
+
+      return {
+        namespace: 'litd-document-editor',
+        nodes: [HeadingNode, QuoteNode, ListNode, ListItemNode],
+        onError: (error: Error) => {
+          console.error('Lexical document editor error', { docId: doc.id, error });
+          throw error;
+        },
+        ...(savedEditorState ? { editorState: savedEditorState } : {}),
+      };
+    },
     [doc.id],
   );
 
