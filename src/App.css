@@ -322,6 +322,23 @@ body {
   box-shadow: var(--theme-shadow-elevated);
 }
 
+.editor-document-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--theme-space-2);
+  margin-bottom: 14px;
+}
+
+.editor-document-action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--theme-space-1);
+}
+
+.editor-document-file-input {
+  display: none;
+}
+
 .editor-document-content {
   min-height: calc(100vh - 180px);
   color: var(--theme-text);
@@ -390,6 +407,11 @@ body {
   content: attr(data-placeholder);
   float: left;
   height: 0;
+  pointer-events: none;
+}
+
+.editor-document-placeholder {
+  color: var(--theme-text-muted);
   pointer-events: none;
 }
 

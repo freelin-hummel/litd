@@ -1,5 +1,10 @@
-import { IndexeddbPersistence } from 'y-indexeddb';
-import * as Y from 'yjs';
+import type { CollaborationSession, DocumentPage } from './document';
+import {
+  createCollaborationSession,
+  createDocumentPage,
+  destroyCollaborationSession,
+  normalizeDocumentPage,
+} from './document';
 
 /** Category IDs are arbitrary strings; built-in categories use well-known values. */
 export type CategoryId = string;
@@ -18,6 +23,7 @@ export interface WorldDoc {
   id: string;
   title: string;
   mode: EditorMode;
+  page: DocumentPage;
 }
 
 export interface WorldStore {
@@ -51,8 +57,7 @@ const DOCS_STORAGE_KEY = 'litd:docs';
 
 type StoredDocs = Record<string, WorldDoc>;
 
-const yDocCache = new Map<string, Y.Doc>();
-const yPersistenceCache = new Map<string, IndexeddbPersistence>();
+const collaborationSessionCache = new Map<string, CollaborationSession>();
 
 function generateDocId(): string {
   return `doc-${crypto.randomUUID()}`;
@@ -108,7 +113,15 @@ function isValidDocs(value: unknown): value is StoredDocs {
       typeof record.id === 'string' &&
       record.id === id &&
       typeof record.title === 'string' &&
-      isEditorMode(record.mode)
+      isEditorMode(record.mode) &&
+      (record.page === undefined ||
+        (record.page !== null &&
+          typeof record.page === 'object' &&
+          (typeof (record.page as Record<string, unknown>).markdown === 'string' ||
+            (record.page as Record<string, unknown>).markdown === undefined) &&
+          (typeof (record.page as Record<string, unknown>).updatedAt === 'string' ||
+            (record.page as Record<string, unknown>).updatedAt === null ||
+            (record.page as Record<string, unknown>).updatedAt === undefined)))
     );
   });
 }
@@ -171,6 +184,7 @@ function createSeedStore(): WorldStore {
         id,
         title: def.title,
         mode: def.mode ?? DEFAULT_DOC_MODE,
+        page: createDocumentPage(),
       };
       category.docIds.push(id);
     }
@@ -189,12 +203,23 @@ function reconcileStore(categories: Category[], docs: StoredDocs): WorldStore {
         id: docId,
         title: 'Untitled',
         mode: DEFAULT_DOC_MODE,
+        page: createDocumentPage(),
       };
       return true;
     }),
   }));
 
-  return { categories: reconciledCategories, docs };
+  const reconciledDocs = Object.fromEntries(
+    Object.entries(docs).map(([id, doc]) => [
+      id,
+      {
+        ...doc,
+        page: normalizeDocumentPage(doc.page),
+      },
+    ]),
+  ) as StoredDocs;
+
+  return { categories: reconciledCategories, docs: reconciledDocs };
 }
 
 export function initWorldStore(): WorldStore {
@@ -224,6 +249,7 @@ export function addDocToCategory(
     id,
     title,
     mode: DEFAULT_DOC_MODE,
+    page: createDocumentPage(),
   };
 
   const category = store.categories.find((c) => c.id === categoryId);
@@ -251,21 +277,27 @@ export function setDocMode(store: WorldStore, docId: string, mode: EditorMode): 
   saveDocs(store.docs);
 }
 
-export function getCollaborationDoc(docId: string): Y.Doc {
-  const cached = yDocCache.get(docId);
-  if (cached) return cached;
-
-  const yDoc = new Y.Doc();
-  yDocCache.set(docId, yDoc);
-  yPersistenceCache.set(docId, new IndexeddbPersistence(`litd:tiptap:${docId}`, yDoc));
-  return yDoc;
+export function saveDocumentPage(store: WorldStore, docId: string, page: DocumentPage): void {
+  const doc = store.docs[docId];
+  if (!doc) return;
+  doc.page = page;
+  saveDocs(store.docs);
 }
 
-export function releaseCollaborationDoc(docId: string): void {
-  yPersistenceCache.get(docId)?.destroy();
-  yPersistenceCache.delete(docId);
-  yDocCache.get(docId)?.destroy();
-  yDocCache.delete(docId);
+export function getCollaborationSession(docId: string): CollaborationSession {
+  const cached = collaborationSessionCache.get(docId);
+  if (cached) return cached;
+
+  const session = createCollaborationSession(docId);
+  collaborationSessionCache.set(docId, session);
+  return session;
+}
+
+export function releaseCollaborationSession(docId: string): void {
+  const session = collaborationSessionCache.get(docId);
+  if (!session) return;
+  destroyCollaborationSession(session);
+  collaborationSessionCache.delete(docId);
 }
 
 /**

@@ -1,18 +1,16 @@
-import Collaboration from '@tiptap/extension-collaboration';
-import Placeholder from '@tiptap/extension-placeholder';
-import StarterKit from '@tiptap/starter-kit';
-import { EditorContent, useEditor } from '@tiptap/react';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { DefaultQuickActions, Tldraw } from 'tldraw';
 import { Zap } from 'lucide-react';
 import type { ThemeId } from '../themes';
 import { getThemeMeta } from '../themes';
-import { getCollaborationDoc, releaseCollaborationDoc } from '../lib/collection';
-import type { WorldDoc } from '../lib/collection';
+import { releaseCollaborationSession, saveDocumentPage } from '../lib/collection';
+import type { WorldDoc, WorldStore } from '../lib/collection';
+import { LexicalDocumentEditor } from './LexicalDocumentEditor';
 
 interface EditorProps {
   doc: WorldDoc | null;
   theme: ThemeId;
+  store: WorldStore;
 }
 
 interface CanvasMountedEditor {
@@ -21,53 +19,19 @@ interface CanvasMountedEditor {
   };
 }
 
-function DocumentEditor({ doc }: { doc: WorldDoc }) {
-  const collaborationDoc = useMemo(() => getCollaborationDoc(doc.id), [doc.id]);
-
+function DocumentEditor({ doc, store }: { doc: WorldDoc; store: WorldStore }) {
   useEffect(() => {
     const currentDocId = doc.id;
-    return () => releaseCollaborationDoc(currentDocId);
+    return () => releaseCollaborationSession(currentDocId);
   }, [doc.id]);
 
-  const editor = useEditor(
-    {
-      extensions: [
-        StarterKit.configure({
-          undoRedo: false,
-        }),
-        Placeholder.configure({
-          placeholder: 'Start writing your world-building notes…',
-          emptyEditorClass: 'is-editor-empty',
-        }),
-        Collaboration.configure({
-          document: collaborationDoc,
-          field: 'content',
-        }),
-      ],
-      editorProps: {
-        attributes: {
-          class: 'editor-document-content',
-        },
-      },
-      immediatelyRender: false,
-    },
-    [collaborationDoc],
-  );
-
-  if (!editor) {
-    return (
-      <div className="editor-loading">
-        <span>Loading document…</span>
-      </div>
-    );
-  }
-
   return (
-    <div className="editor-document-shell">
-      <div className="editor-document-inner">
-        <EditorContent editor={editor} />
-      </div>
-    </div>
+    <LexicalDocumentEditor
+      docId={doc.id}
+      docTitle={doc.title}
+      page={doc.page}
+      onPageChange={(page) => saveDocumentPage(store, doc.id, page)}
+    />
   );
 }
 
@@ -105,7 +69,7 @@ function CanvasEditor({ doc, theme }: { doc: WorldDoc; theme: ThemeId }) {
   );
 }
 
-export function Editor({ doc, theme }: EditorProps) {
+export function Editor({ doc, theme, store }: EditorProps) {
   if (!doc) {
     return (
       <div className="editor-empty">
@@ -122,7 +86,11 @@ export function Editor({ doc, theme }: EditorProps) {
 
   return (
     <div className="editor-host">
-      {doc.mode === 'canvas' ? <CanvasEditor doc={doc} theme={theme} /> : <DocumentEditor doc={doc} />}
+      {doc.mode === 'canvas' ? (
+        <CanvasEditor doc={doc} theme={theme} />
+      ) : (
+        <DocumentEditor doc={doc} store={store} />
+      )}
     </div>
   );
 }
