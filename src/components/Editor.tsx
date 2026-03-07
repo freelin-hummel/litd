@@ -4,12 +4,13 @@ import { Zap } from 'lucide-react';
 import type { ThemeId } from '../themes';
 import { getThemeMeta } from '../themes';
 import { releaseCollaborationSession } from '../lib/collection';
-import type { WorldDoc } from '../lib/collection';
+import type { WorldDoc, WorkspaceMetadata } from '../lib/collection';
 import { LexicalDocumentEditor } from './LexicalDocumentEditor';
 
 interface EditorProps {
   doc: WorldDoc | null;
   theme: ThemeId;
+  workspace: WorkspaceMetadata;
 }
 
 interface CanvasMountedEditor {
@@ -35,7 +36,15 @@ const TLDRAW_COMPONENTS = {
   QuickActions: DefaultQuickActions,
 } as const;
 
-function CanvasEditor({ doc, theme }: { doc: WorldDoc; theme: ThemeId }) {
+function CanvasEditor({
+  doc,
+  theme,
+  workspace,
+}: {
+  doc: WorldDoc;
+  theme: ThemeId;
+  workspace: WorkspaceMetadata;
+}) {
   const colorScheme = getThemeMeta(theme).appearance;
   const editorRef = useRef<CanvasMountedEditor | null>(null);
 
@@ -51,7 +60,7 @@ function CanvasEditor({ doc, theme }: { doc: WorldDoc; theme: ThemeId }) {
 
   return (
     <div className="editor-canvas-shell">
-      <div className="editor-canvas-badge">Canvas mode</div>
+      <div className="editor-canvas-badge">{workspace.modes.canvas.badgeLabel}</div>
       <Tldraw
         persistenceKey={`litd:tldraw:${doc.id}`}
         components={TLDRAW_COMPONENTS}
@@ -64,7 +73,7 @@ function CanvasEditor({ doc, theme }: { doc: WorldDoc; theme: ThemeId }) {
   );
 }
 
-export function Editor({ doc, theme }: EditorProps) {
+export function Editor({ doc, theme, workspace }: EditorProps) {
   if (!doc) {
     return (
       <div className="editor-empty">
@@ -72,8 +81,8 @@ export function Editor({ doc, theme }: EditorProps) {
           <span className="editor-empty-icon" aria-hidden="true">
             <Zap size={48} strokeWidth={1.5} />
           </span>
-          <h2>Select a document to begin</h2>
-          <p>Choose an entry from the sidebar, or create a new one.</p>
+          <h2>Select a page to begin</h2>
+          <p>Choose a page from the sidebar, or create a new one.</p>
         </div>
       </div>
     );
@@ -82,7 +91,7 @@ export function Editor({ doc, theme }: EditorProps) {
   return (
     <div className="editor-host">
       {doc.mode === 'canvas' ? (
-        <CanvasEditor key={doc.id} doc={doc} theme={theme} />
+        <CanvasEditor key={doc.id} doc={doc} theme={theme} workspace={workspace} />
       ) : (
         <DocumentEditor key={doc.id} doc={doc} />
       )}

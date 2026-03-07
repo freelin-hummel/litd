@@ -1,7 +1,12 @@
 import { useState } from 'react';
 import type { KeyboardEvent } from 'react';
-import type { Category, WorldStore } from '../lib/collection';
-import { addCategory, removeCategory, renameCategory } from '../lib/collection';
+import type { Category, WorkspaceMetadata, WorldStore } from '../lib/collection';
+import {
+  addCategory,
+  removeCategory,
+  renameCategory,
+  updateWorkspaceMetadata,
+} from '../lib/collection';
 import { createPageInCategory, listCategoryPages } from '../lib/pages';
 import {
   getCategoryIcon,
@@ -43,6 +48,30 @@ type SidebarDialogState =
   | { kind: 'error'; title: string; description: string }
   | null;
 
+interface WorkspaceDraft {
+  title: string;
+  subtitle: string;
+  documentLabel: string;
+  documentSidebarMeta: string;
+  documentBadgeLabel: string;
+  canvasLabel: string;
+  canvasSidebarMeta: string;
+  canvasBadgeLabel: string;
+}
+
+function createWorkspaceDraft(workspace: WorkspaceMetadata): WorkspaceDraft {
+  return {
+    title: workspace.title,
+    subtitle: workspace.subtitle,
+    documentLabel: workspace.modes.document.label,
+    documentSidebarMeta: workspace.modes.document.sidebarMeta,
+    documentBadgeLabel: workspace.modes.document.badgeLabel,
+    canvasLabel: workspace.modes.canvas.label,
+    canvasSidebarMeta: workspace.modes.canvas.sidebarMeta,
+    canvasBadgeLabel: workspace.modes.canvas.badgeLabel,
+  };
+}
+
 export function Sidebar({
   store,
   activePageId,
@@ -60,6 +89,10 @@ export function Sidebar({
   const [renamingLabel, setRenamingLabel] = useState('');
   const [addingCategory, setAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [editingWorkspace, setEditingWorkspace] = useState(false);
+  const [workspaceDraft, setWorkspaceDraft] = useState<WorkspaceDraft>(
+    () => createWorkspaceDraft(store.workspace),
+  );
   const [dialogState, setDialogState] = useState<SidebarDialogState>(null);
 
   function toggleCategory(id: string, open: boolean) {
@@ -83,6 +116,7 @@ export function Sidebar({
     setAddingDocTo(categoryId);
     setNewDocTitle('');
     setRenamingId(null);
+    setEditingWorkspace(false);
   }
 
   function commitAddDoc(categoryId: string) {
@@ -108,6 +142,7 @@ export function Sidebar({
     setRenamingId(categoryId);
     setRenamingLabel(currentLabel);
     setAddingDocTo(null);
+    setEditingWorkspace(false);
   }
 
   function commitRename(categoryId: string) {
@@ -119,7 +154,7 @@ export function Sidebar({
       } catch (error) {
         setRenamingId(null);
         setRenamingLabel('');
-        openErrorDialog('Unable to rename category', error);
+        openErrorDialog('Unable to rename collection', error);
         return;
       }
     }
@@ -164,6 +199,7 @@ export function Sidebar({
     setNewCategoryName('');
     setAddingDocTo(null);
     setRenamingId(null);
+    setEditingWorkspace(false);
   }
 
   function commitAddCategory() {
@@ -176,7 +212,7 @@ export function Sidebar({
       } catch (error) {
         setAddingCategory(false);
         setNewCategoryName('');
-        openErrorDialog('Unable to create category', error);
+        openErrorDialog('Unable to create collection', error);
         return;
       }
     }
@@ -192,25 +228,229 @@ export function Sidebar({
     }
   }
 
+  function startEditingWorkspace() {
+    setWorkspaceDraft(createWorkspaceDraft(store.workspace));
+    setEditingWorkspace(true);
+    setAddingCategory(false);
+    setAddingDocTo(null);
+    setRenamingId(null);
+  }
+
+  function cancelEditingWorkspace() {
+    setWorkspaceDraft(createWorkspaceDraft(store.workspace));
+    setEditingWorkspace(false);
+  }
+
+  function commitWorkspaceEdit() {
+    const title = workspaceDraft.title.trim();
+    const documentLabel = workspaceDraft.documentLabel.trim();
+    const canvasLabel = workspaceDraft.canvasLabel.trim();
+    const subtitle = workspaceDraft.subtitle.trim();
+    const documentSidebarMeta = workspaceDraft.documentSidebarMeta.trim();
+    const documentBadgeLabel = workspaceDraft.documentBadgeLabel.trim();
+    const canvasSidebarMeta = workspaceDraft.canvasSidebarMeta.trim();
+    const canvasBadgeLabel = workspaceDraft.canvasBadgeLabel.trim();
+
+    if (!title || !documentLabel || !canvasLabel) {
+      openErrorDialog(
+        'Unable to update workspace branding',
+        'Title, document label, and canvas label cannot be empty.',
+      );
+      return;
+    }
+
+    // Subtitle is optional; blank badges/meta labels are normalized back to
+    // defaults so branding can be simplified without leaving empty UI labels.
+    updateWorkspaceMetadata(store, {
+      title,
+      subtitle,
+      modes: {
+        document: {
+          description: store.workspace.modes.document.description,
+          label: documentLabel,
+          sidebarMeta: documentSidebarMeta,
+          badgeLabel: documentBadgeLabel,
+        },
+        canvas: {
+          description: store.workspace.modes.canvas.description,
+          label: canvasLabel,
+          sidebarMeta: canvasSidebarMeta,
+          badgeLabel: canvasBadgeLabel,
+        },
+      },
+    });
+    setEditingWorkspace(false);
+    onStoreChange();
+  }
+
+  function handleWorkspaceEditorKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === 'Enter') commitWorkspaceEdit();
+    if (event.key === 'Escape') cancelEditingWorkspace();
+  }
+
   const activeDialogTitle =
     dialogState?.kind === 'delete' ? `Delete “${dialogState.label}”?` : dialogState?.title ?? '';
   const activeDialogDescription =
     dialogState?.kind === 'delete'
       ? dialogState.pageCount > 0
-        ? `This category contains ${dialogState.pageCount} page(s). The sidebar grouping will be removed, but the underlying pages remain stored locally.`
-        : 'This category will be removed from the sidebar.'
+        ? `This collection contains ${dialogState.pageCount} page(s). The sidebar grouping will be removed, but the underlying pages remain stored locally.`
+        : 'This collection will be removed from the sidebar.'
       : dialogState?.description ?? '';
 
   return (
     <>
       <aside className="sidebar">
         <div className="sidebar-header">
-          <span className="sidebar-logo" aria-hidden="true">
-            <Zap size={18} />
-          </span>
-          <span className="sidebar-title">LITD</span>
-          <span className="sidebar-subtitle">Worldbuilder</span>
+          <div className="sidebar-branding">
+            <span className="sidebar-logo" aria-hidden="true">
+              <Zap size={18} />
+            </span>
+            <span className="sidebar-title">{store.workspace.title}</span>
+            {store.workspace.subtitle ? (
+              <span className="sidebar-subtitle">{store.workspace.subtitle}</span>
+            ) : null}
+          </div>
+          <IconButton
+            className="sidebar-header-action-btn"
+            variant="ghost"
+            size="sm"
+            label="Edit workspace branding"
+            onClick={() => {
+              if (editingWorkspace) {
+                cancelEditingWorkspace();
+                return;
+              }
+              startEditingWorkspace();
+            }}
+          >
+            <Pencil size={11} aria-hidden="true" />
+          </IconButton>
         </div>
+        {editingWorkspace ? (
+          <div className="sidebar-workspace-editor">
+            <div className="sidebar-workspace-field">
+              <span className="sidebar-workspace-field-label">Title</span>
+              <Input
+                className="sidebar-input"
+                value={workspaceDraft.title}
+                onChange={(event) =>
+                  setWorkspaceDraft((prev) => ({ ...prev, title: event.target.value }))
+                }
+                onKeyDown={handleWorkspaceEditorKeyDown}
+                aria-label="Workspace title"
+              />
+            </div>
+            <div className="sidebar-workspace-field">
+              <span className="sidebar-workspace-field-label">Subtitle</span>
+              <Input
+                className="sidebar-input"
+                value={workspaceDraft.subtitle}
+                onChange={(event) =>
+                  setWorkspaceDraft((prev) => ({ ...prev, subtitle: event.target.value }))
+                }
+                onKeyDown={handleWorkspaceEditorKeyDown}
+                aria-label="Workspace subtitle"
+              />
+            </div>
+            <div className="sidebar-workspace-grid">
+              <div className="sidebar-workspace-field">
+                <span className="sidebar-workspace-field-label">Document label</span>
+                <Input
+                  className="sidebar-input"
+                  value={workspaceDraft.documentLabel}
+                  onChange={(event) =>
+                    setWorkspaceDraft((prev) => ({
+                      ...prev,
+                      documentLabel: event.target.value,
+                    }))
+                  }
+                  onKeyDown={handleWorkspaceEditorKeyDown}
+                  aria-label="Document mode label"
+                />
+              </div>
+              <div className="sidebar-workspace-field">
+                <span className="sidebar-workspace-field-label">Document sidebar badge</span>
+                <Input
+                  className="sidebar-input"
+                  value={workspaceDraft.documentSidebarMeta}
+                  onChange={(event) =>
+                    setWorkspaceDraft((prev) => ({
+                      ...prev,
+                      documentSidebarMeta: event.target.value,
+                    }))
+                  }
+                  onKeyDown={handleWorkspaceEditorKeyDown}
+                  aria-label="Document sidebar badge"
+                />
+              </div>
+              <div className="sidebar-workspace-field">
+                <span className="sidebar-workspace-field-label">Document header badge</span>
+                <Input
+                  className="sidebar-input"
+                  value={workspaceDraft.documentBadgeLabel}
+                  onChange={(event) =>
+                    setWorkspaceDraft((prev) => ({
+                      ...prev,
+                      documentBadgeLabel: event.target.value,
+                    }))
+                  }
+                  onKeyDown={handleWorkspaceEditorKeyDown}
+                  aria-label="Document header badge"
+                />
+              </div>
+              <div className="sidebar-workspace-field">
+                <span className="sidebar-workspace-field-label">Canvas label</span>
+                <Input
+                  className="sidebar-input"
+                  value={workspaceDraft.canvasLabel}
+                  onChange={(event) =>
+                    setWorkspaceDraft((prev) => ({ ...prev, canvasLabel: event.target.value }))
+                  }
+                  onKeyDown={handleWorkspaceEditorKeyDown}
+                  aria-label="Canvas mode label"
+                />
+              </div>
+              <div className="sidebar-workspace-field">
+                <span className="sidebar-workspace-field-label">Canvas badge</span>
+                <Input
+                  className="sidebar-input"
+                  value={workspaceDraft.canvasSidebarMeta}
+                  onChange={(event) =>
+                    setWorkspaceDraft((prev) => ({
+                      ...prev,
+                      canvasSidebarMeta: event.target.value,
+                    }))
+                  }
+                  onKeyDown={handleWorkspaceEditorKeyDown}
+                  aria-label="Canvas sidebar badge"
+                />
+              </div>
+              <div className="sidebar-workspace-field sidebar-workspace-field--full">
+                <span className="sidebar-workspace-field-label">Canvas header badge</span>
+                <Input
+                  className="sidebar-input"
+                  value={workspaceDraft.canvasBadgeLabel}
+                  onChange={(event) =>
+                    setWorkspaceDraft((prev) => ({
+                      ...prev,
+                      canvasBadgeLabel: event.target.value,
+                    }))
+                  }
+                  onKeyDown={handleWorkspaceEditorKeyDown}
+                  aria-label="Canvas header badge"
+                />
+              </div>
+            </div>
+            <div className="sidebar-workspace-actions">
+              <Button variant="ghost" size="sm" onClick={cancelEditingWorkspace}>
+                Cancel
+              </Button>
+              <Button variant="outline" size="sm" onClick={commitWorkspaceEdit}>
+                Save branding
+              </Button>
+            </div>
+          </div>
+        ) : null}
         <nav className="sidebar-nav">
           {store.categories.map((category: Category) => {
             const CategoryIcon = getCategoryIcon(category.metadata.icon);
@@ -236,7 +476,7 @@ export function Sidebar({
                         onChange={(event) => setRenamingLabel(event.target.value)}
                         onKeyDown={(event) => handleRenameKeyDown(event, category.id)}
                         onBlur={() => commitRename(category.id)}
-                        aria-label="Rename category"
+                        aria-label="Rename collection"
                       />
                     </div>
                   ) : (
@@ -266,7 +506,7 @@ export function Sidebar({
                             className="sidebar-category-action-btn"
                             variant="ghost"
                             size="sm"
-                            label={`Category actions for ${category.label}`}
+                            label={`Collection actions for ${category.label}`}
                           >
                             <Pencil size={11} aria-hidden="true" />
                           </IconButton>
@@ -274,12 +514,12 @@ export function Sidebar({
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onSelect={() => startRenaming(category.id, category.label)}>
                             <Pencil size={12} aria-hidden="true" />
-                            Rename category
+                            Rename collection
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem danger onSelect={() => requestDeleteCategory(category.id)}>
                             <Trash2 size={12} aria-hidden="true" />
-                            Delete category
+                            Delete collection
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -324,7 +564,7 @@ export function Sidebar({
                           variant="ghost"
                           size="sm"
                           onClick={() => startAddingDoc(category.id)}
-                          title={`Add to ${category.label}`}
+                          title={`Add a page to ${category.label}`}
                         >
                           <Plus size={11} aria-hidden="true" />
                           New {category.newLabel}
@@ -341,7 +581,7 @@ export function Sidebar({
               <Input
                 autoFocus
                 className="sidebar-input"
-                placeholder="Category name…"
+                placeholder="Collection name…"
                 value={newCategoryName}
                 onChange={(event) => setNewCategoryName(event.target.value)}
                 onKeyDown={handleNewCategoryKeyDown}
@@ -354,10 +594,10 @@ export function Sidebar({
               variant="outline"
               size="sm"
               onClick={startAddingCategory}
-              title="Add a new category"
+              title="Add a new collection"
             >
               <Plus size={11} aria-hidden="true" />
-              New Category
+              New Collection
             </Button>
           )}
         </nav>
@@ -370,8 +610,8 @@ export function Sidebar({
         }}
         title={activeDialogTitle}
         description={activeDialogDescription}
-        actionLabel={dialogState?.kind === 'delete' ? 'Delete category' : 'OK'}
-        cancelLabel={dialogState?.kind === 'delete' ? 'Keep category' : 'Dismiss'}
+        actionLabel={dialogState?.kind === 'delete' ? 'Delete collection' : 'OK'}
+        cancelLabel={dialogState?.kind === 'delete' ? 'Keep collection' : 'Dismiss'}
         onAction={() => {
           if (dialogState?.kind === 'delete') {
             confirmDeleteCategory();

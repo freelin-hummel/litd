@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.1",
   "type": "module",
-  "description": "Collaborative TTRPG worldbuilding app powered by Lexical and tldraw",
+  "description": "Collaborative knowledge workspace powered by Lexical and tldraw",
   "scripts": {
     "dev": "vite",
     "hocuspocus:dev": "node --watch hocuspocus/server.mjs",

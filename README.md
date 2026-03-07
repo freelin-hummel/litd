@@ -1,14 +1,16 @@
-# LITD — Collaborative TTRPG Worldbuilder
+# LITD — Collaborative Knowledge Workspace
 
-A collaborative tabletop RPG worldbuilding application powered by [Lexical](https://lexical.dev/) and [tldraw](https://tldraw.dev/).
+A collaborative knowledge workspace powered by [Lexical](https://lexical.dev/) and [tldraw](https://tldraw.dev/).
 
 ## Features
 
 - **Rich document editing** via Lexical with Yjs-backed collaborative document state
-- **Freeform canvas mode** via tldraw for maps, diagrams, and relationship boards
-- **Flexible sidebar categories** with seeded worldbuilding defaults:
-  - Worlds · Locations · Factions · Characters · Lore & History · Bestiary
-- **Create new pages** in any category with a single click
+- **Freeform canvas mode** via tldraw for diagrams, layouts, and relationship boards
+- **Flexible sidebar collections** with metadata-driven icons, tags, pinning, custom fields, asset references, and grouping dimensions
+- **Editable workspace branding** for shell title/subtitle plus document/canvas labels and badges
+- **Seeded generic workspace collections**:
+  - Notes · Research · People · Spaces · Projects
+- **Create new pages** in any collection with a single click
 - **CRDT-backed document model** using Yjs, Hocuspocus, and IndexedDB persistence
 - **Two built-in themes** with an instant switcher in the sidebar footer
 - **Lucide icons** throughout — no emoji
@@ -69,16 +71,18 @@ Feature components should prefer composing these primitives rather than using Ra
 
 The app now treats document and canvas as two projections of the same persisted page structure:
 
-- **Page metadata**: stable page identity, title, mode, category membership, and ordering metadata
-- **Blocks**: meaningful document/content units that drag-and-drop editing can reorder
+- **Page metadata**: stable page identity, title, mode, category membership, ordering metadata, tags, pinning, grouping, custom fields, and asset references
+- **Blocks**: meaningful document/content units that drag-and-drop editing can reorder, annotate, pin, and attach asset/mechanics metadata to
 - **Entities**: named records referenced by blocks or canvas objects
 - **Relations**: stable references between blocks and/or entities
+- **Assets**: renderer-agnostic file/image/PDF records that can be referenced from pages and blocks
 
 This shared model lives in `src/lib/document-pages.ts` and is persisted alongside page content metadata in `src/lib/document.ts`.
 
 - Lexical is the structured document editor over that shared model.
 - Canvas is the spatial editor/view over the same page identity and related records.
-- Seeded categories provide default labels and icons, but category presentation metadata is persisted on each category record instead of being inferred from category ids in generic UI helpers.
+- Categories remain one organizational projection, but their presentation and metadata are persisted on each category record instead of being inferred from category ids in generic UI helpers.
+- `src/lib/block-registry.ts` defines the initial renderer-agnostic block registry seam for Lexical nodes, markdown behavior, canvas projection behavior, and mechanics-aware metadata support.
 
 ## Getting Started
 

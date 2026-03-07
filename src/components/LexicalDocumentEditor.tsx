@@ -1,7 +1,4 @@
-import { $convertFromMarkdownString, TRANSFORMERS } from '@lexical/markdown';
-import { CodeNode } from '@lexical/code';
-import { LinkNode } from '@lexical/link';
-import { ListItemNode, ListNode } from '@lexical/list';
+import { $convertFromMarkdownString } from '@lexical/markdown';
 import { CollaborationPlugin } from '@lexical/react/LexicalCollaborationPlugin';
 import { LexicalCollaboration } from '@lexical/react/LexicalCollaborationContext';
 import { ContentEditable } from '@lexical/react/LexicalContentEditable';
@@ -11,11 +8,14 @@ import { DraggableBlockPlugin_EXPERIMENTAL } from '@lexical/react/LexicalDraggab
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
 import { MarkdownShortcutPlugin } from '@lexical/react/LexicalMarkdownShortcutPlugin';
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
-import { HeadingNode, QuoteNode } from '@lexical/rich-text';
 import type { LexicalEditor } from 'lexical';
 import { GripVertical } from 'lucide-react';
 import type { MutableRefObject } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
+import {
+  getRegisteredLexicalNodes,
+  getRegisteredMarkdownTransformers,
+} from '../lib/block-registry';
 import type { DocumentPage } from '../lib/document';
 import { getCollaborationSession } from '../lib/collection';
 
@@ -47,12 +47,14 @@ export function LexicalDocumentEditor({
   const [anchorElem, setAnchorElem] = useState<HTMLElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const targetLineRef = useRef<HTMLDivElement | null>(null);
+  const registeredLexicalNodes = useMemo(() => getRegisteredLexicalNodes(), []);
+  const registeredMarkdownTransformers = useMemo(() => getRegisteredMarkdownTransformers(), []);
 
   const initialConfig = useMemo<InitialConfigType>(
     () => ({
       editorState: null,
       namespace: 'litd-document-editor',
-      nodes: [HeadingNode, QuoteNode, ListNode, ListItemNode, CodeNode, LinkNode],
+      nodes: registeredLexicalNodes,
       onError: (error: Error) => {
         const contextualError = new Error(
           `Lexical editor failed for document "${docId}": ${error.message}`,
@@ -72,10 +74,10 @@ export function LexicalDocumentEditor({
       }
 
       editor.update(() => {
-        $convertFromMarkdownString(initialMarkdownRef.current, TRANSFORMERS);
+        $convertFromMarkdownString(initialMarkdownRef.current, registeredMarkdownTransformers);
       });
     },
-    [],
+    [registeredMarkdownTransformers],
   );
 
   return (
@@ -97,7 +99,7 @@ export function LexicalDocumentEditor({
               placeholder={null}
               ErrorBoundary={LexicalErrorBoundary}
             />
-            <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
+            <MarkdownShortcutPlugin transformers={registeredMarkdownTransformers} />
             {anchorElem ? (
               <DraggableBlockPlugin_EXPERIMENTAL
                 anchorElem={anchorElem}

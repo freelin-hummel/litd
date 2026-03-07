@@ -18,7 +18,7 @@ import './App.css';
 
 const store: WorldStore = initWorldStore();
 
-/** Default editor mode for newly created document pages. */
+/** Default editor mode for newly created pages. */
 const DEFAULT_DOCUMENT_MODE: EditorMode = 'document';
 
 function App() {
@@ -81,10 +81,11 @@ function App() {
           <EditorToolbar
             docTitle={activeTitle}
             mode={activeMode}
+            workspace={store.workspace}
             onModeChange={handleModeChange}
           />
         )}
-        <Editor doc={activePage} theme={theme} />
+        <Editor doc={activePage} theme={theme} workspace={store.workspace} />
       </main>
     </div>
   );

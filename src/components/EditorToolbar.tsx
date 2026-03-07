@@ -1,15 +1,15 @@
-import type { EditorMode } from '../lib/collection';
-import { PAGE_MODE_DETAILS } from '../lib/pages';
+import type { EditorMode, WorkspaceMetadata } from '../lib/collection';
 import { CanvasModeIcon, DocumentModeIcon } from '../lib/icons';
 import { ToggleGroup, ToggleGroupItem } from '../primitives';
 
 interface EditorToolbarProps {
   docTitle: string;
   mode: EditorMode;
+  workspace: WorkspaceMetadata;
   onModeChange: (mode: EditorMode) => void;
 }
 
-export function EditorToolbar({ docTitle, mode, onModeChange }: EditorToolbarProps) {
+export function EditorToolbar({ docTitle, mode, workspace, onModeChange }: EditorToolbarProps) {
   return (
     <div className="editor-toolbar" role="toolbar" aria-label="Editor controls">
       <span className="editor-toolbar-title" title={docTitle}>
@@ -29,20 +29,20 @@ export function EditorToolbar({ docTitle, mode, onModeChange }: EditorToolbarPro
         <ToggleGroupItem
           className="editor-mode-btn"
           value="document"
-          aria-label="Document mode"
-          title={PAGE_MODE_DETAILS.document.description}
+          aria-label={`${workspace.modes.document.label} mode`}
+          title={workspace.modes.document.description}
         >
           <DocumentModeIcon size={14} aria-hidden="true" />
-          {PAGE_MODE_DETAILS.document.label}
+          {workspace.modes.document.label}
         </ToggleGroupItem>
         <ToggleGroupItem
           className="editor-mode-btn"
           value="canvas"
-          aria-label="Canvas mode"
-          title={PAGE_MODE_DETAILS.canvas.description}
+          aria-label={`${workspace.modes.canvas.label} mode`}
+          title={workspace.modes.canvas.description}
         >
           <CanvasModeIcon size={14} aria-hidden="true" />
-          {PAGE_MODE_DETAILS.canvas.label}
+          {workspace.modes.canvas.label}
         </ToggleGroupItem>
       </ToggleGroup>
     </div>
