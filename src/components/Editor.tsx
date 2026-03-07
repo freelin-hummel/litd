@@ -3,14 +3,14 @@ import { DefaultQuickActions, Tldraw } from 'tldraw';
 import { Zap } from 'lucide-react';
 import type { ThemeId } from '../themes';
 import { getThemeMeta } from '../themes';
-import type { DocumentEditorBoundary } from '../lib/document-editor';
-import type { DocumentPage } from '../lib/document-pages';
-import { TIPTAP_DOCUMENT_EDITOR } from './TipTapDocumentEditor';
+import { releaseCollaborationSession, saveDocumentPage } from '../lib/collection';
+import type { WorldDoc, WorldStore } from '../lib/collection';
+import { LexicalDocumentEditor } from './LexicalDocumentEditor';
 
 interface EditorProps {
-  page: DocumentPage | null;
+  doc: WorldDoc | null;
   theme: ThemeId;
-  documentEditor?: DocumentEditorBoundary;
+  store: WorldStore;
 }
 
 interface CanvasMountedEditor {
@@ -19,15 +19,20 @@ interface CanvasMountedEditor {
   };
 }
 
-function DocumentEditor({
-  page,
-  documentEditor,
-}: {
-  page: DocumentPage;
-  documentEditor: DocumentEditorBoundary;
-}) {
-  const Surface = documentEditor.Surface;
-  return <Surface page={page} />;
+function DocumentEditor({ doc, store }: { doc: WorldDoc; store: WorldStore }) {
+  useEffect(() => {
+    const currentDocId = doc.id;
+    return () => releaseCollaborationSession(currentDocId);
+  }, [doc.id]);
+
+  return (
+    <LexicalDocumentEditor
+      docId={doc.id}
+      docTitle={doc.title}
+      page={doc.page}
+      onPageChange={(page) => saveDocumentPage(store, doc.id, page)}
+    />
+  );
 }
 
 const TLDRAW_COMPONENTS = {
@@ -35,7 +40,7 @@ const TLDRAW_COMPONENTS = {
   QuickActions: DefaultQuickActions,
 } as const;
 
-function CanvasEditor({ page, theme }: { page: DocumentPage; theme: ThemeId }) {
+function CanvasEditor({ doc, theme }: { doc: WorldDoc; theme: ThemeId }) {
   const colorScheme = getThemeMeta(theme).appearance;
   const editorRef = useRef<CanvasMountedEditor | null>(null);
 
@@ -53,7 +58,7 @@ function CanvasEditor({ page, theme }: { page: DocumentPage; theme: ThemeId }) {
     <div className="editor-canvas-shell">
       <div className="editor-canvas-badge">Canvas mode</div>
       <Tldraw
-        persistenceKey={`litd:tldraw:${page.id}`}
+        persistenceKey={`litd:tldraw:${doc.id}`}
         components={TLDRAW_COMPONENTS}
         onMount={(editor) => {
           editorRef.current = editor as CanvasMountedEditor;
@@ -64,12 +69,8 @@ function CanvasEditor({ page, theme }: { page: DocumentPage; theme: ThemeId }) {
   );
 }
 
-export function Editor({
-  page,
-  theme,
-  documentEditor = TIPTAP_DOCUMENT_EDITOR,
-}: EditorProps) {
-  if (!page) {
+export function Editor({ doc, theme, store }: EditorProps) {
+  if (!doc) {
     return (
       <div className="editor-empty">
         <div className="editor-empty-content">
@@ -85,10 +86,10 @@ export function Editor({
 
   return (
     <div className="editor-host">
-      {page.mode === 'canvas' ? (
-        <CanvasEditor page={page} theme={theme} />
+      {doc.mode === 'canvas' ? (
+        <CanvasEditor doc={doc} theme={theme} />
       ) : (
-        <DocumentEditor page={page} documentEditor={documentEditor} />
+        <DocumentEditor doc={doc} store={store} />
       )}
     </div>
   );
