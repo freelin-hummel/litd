@@ -213,7 +213,7 @@ export function Sidebar({
         </div>
         <nav className="sidebar-nav">
           {store.categories.map((category: Category) => {
-            const CategoryIcon = getCategoryIcon(category.id);
+            const CategoryIcon = getCategoryIcon(category.metadata.icon);
             const isOpen = expanded.has(category.id);
             const isRenaming = renamingId === category.id;
             const pages = listCategoryPages(store, category);

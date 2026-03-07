@@ -1,3 +1,9 @@
+import {
+  createPageContentModel,
+  normalizePageContentModel,
+  type DocumentPage as PageMetadata,
+  type PageContentModel,
+} from './document-pages';
 import type { Provider, ProviderAwareness, UserState } from '@lexical/yjs';
 import { HocuspocusProvider } from '@hocuspocus/provider';
 import { IndexeddbPersistence } from 'y-indexeddb';
@@ -6,6 +12,12 @@ import * as Y from 'yjs';
 export interface DocumentPage {
   markdown: string;
   updatedAt: string | null;
+  model: PageContentModel;
+}
+
+interface DocumentPageOptions extends PageMetadata {
+  categoryIds?: string[];
+  sortIndex?: number | null;
 }
 
 export interface CollaborationSession {
@@ -97,22 +109,37 @@ function getHocuspocusToken(): string | null {
   return configured && configured.length > 0 ? configured : null;
 }
 
-export function createDocumentPage(markdown = ''): DocumentPage {
+export function createDocumentPage(
+  { id, title, mode, categoryIds = [], sortIndex = null }: DocumentPageOptions,
+  markdown = '',
+): DocumentPage {
   return {
     markdown,
     updatedAt: markdown ? new Date().toISOString() : null,
+    model: createPageContentModel(
+      { id, title, mode },
+      { categoryIds, sortIndex },
+    ),
   };
 }
 
-export function normalizeDocumentPage(value: unknown): DocumentPage {
+export function normalizeDocumentPage(
+  value: unknown,
+  { id, title, mode, categoryIds = [], sortIndex = null }: DocumentPageOptions,
+): DocumentPage {
   if (value === null || typeof value !== 'object') {
-    return createDocumentPage();
+    return createDocumentPage({ id, title, mode, categoryIds, sortIndex });
   }
 
   const record = value as Record<string, unknown>;
   return {
     markdown: typeof record.markdown === 'string' ? record.markdown : '',
     updatedAt: typeof record.updatedAt === 'string' ? record.updatedAt : null,
+    model: normalizePageContentModel(
+      record.model,
+      { id, title, mode },
+      { categoryIds, sortIndex },
+    ),
   };
 }
 
