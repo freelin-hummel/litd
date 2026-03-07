@@ -1,18 +1,18 @@
-import type { EditorMode } from '../lib/collection';
+import type { EditorMode } from '../lib/document-pages';
 import { CanvasModeIcon, DocumentModeIcon } from '../lib/icons';
 import { ToggleGroup, ToggleGroupItem } from '../primitives';
 
 interface EditorToolbarProps {
-  docTitle: string;
+  pageTitle: string;
   mode: EditorMode;
   onModeChange: (mode: EditorMode) => void;
 }
 
-export function EditorToolbar({ docTitle, mode, onModeChange }: EditorToolbarProps) {
+export function EditorToolbar({ pageTitle, mode, onModeChange }: EditorToolbarProps) {
   return (
     <div className="editor-toolbar" role="toolbar" aria-label="Editor controls">
-      <span className="editor-toolbar-title" title={docTitle}>
-        {docTitle}
+      <span className="editor-toolbar-title" title={pageTitle}>
+        {pageTitle}
       </span>
       <ToggleGroup
         className="editor-mode-toggle"
