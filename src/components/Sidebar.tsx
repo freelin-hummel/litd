@@ -2,9 +2,9 @@ import { useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import type { Category, WorldStore } from '../lib/collection';
 import {
+  addPageToCategory,
   addCategory,
-  addDocToCategory,
-  getDocTitle,
+  getPageTitle,
   removeCategory,
   renameCategory,
 } from '../lib/collection';
@@ -36,8 +36,8 @@ import { ThemeSwitcher } from './ThemeSwitcher';
 
 interface SidebarProps {
   store: WorldStore;
-  activeDocId: string | null;
-  onSelectDoc: (docId: string) => void;
+  activePageId: string | null;
+  onSelectPage: (pageId: string) => void;
   onStoreChange: () => void;
   currentTheme: ThemeId;
   onThemeSwitch: (next: ThemeId) => void;
@@ -50,8 +50,8 @@ type SidebarDialogState =
 
 export function Sidebar({
   store,
-  activeDocId,
-  onSelectDoc,
+  activePageId,
+  onSelectPage,
   onStoreChange,
   currentTheme,
   onThemeSwitch,
@@ -93,9 +93,9 @@ export function Sidebar({
   function commitAddDoc(categoryId: string) {
     const title = newDocTitle.trim();
     if (title) {
-      const docId = addDocToCategory(store, categoryId, title);
+      const pageId = addPageToCategory(store, categoryId, title);
       onStoreChange();
-      onSelectDoc(docId);
+      onSelectPage(pageId);
     }
     setAddingDocTo(null);
     setNewDocTitle('');
@@ -295,14 +295,14 @@ export function Sidebar({
                     {category.docIds.map((docId) => (
                       <li key={docId}>
                         <Button
-                          className={`sidebar-doc-item ${activeDocId === docId ? 'active' : ''}`}
+                          className={`sidebar-doc-item ${activePageId === docId ? 'active' : ''}`}
                           variant="ghost"
                           size="sm"
-                          onClick={() => onSelectDoc(docId)}
-                          title={getDocTitle(store, docId)}
+                          onClick={() => onSelectPage(docId)}
+                          title={getPageTitle(store, docId)}
                         >
                           <FileText size={11} aria-hidden="true" />
-                          <span className="sidebar-doc-title">{getDocTitle(store, docId)}</span>
+                          <span className="sidebar-doc-title">{getPageTitle(store, docId)}</span>
                         </Button>
                       </li>
                     ))}

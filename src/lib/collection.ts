@@ -1,28 +1,21 @@
-import { IndexeddbPersistence } from 'y-indexeddb';
-import * as Y from 'yjs';
+import type { DocumentPage, EditorMode } from './document-pages';
 
 /** Category IDs are arbitrary strings; built-in categories use well-known values. */
 export type CategoryId = string;
-
-export type EditorMode = 'document' | 'canvas';
 
 export interface Category {
   id: string;
   label: string;
   /** Singular label used in "New <X>" button text */
   newLabel: string;
+  /** Stored page IDs; legacy name kept for existing localStorage data. */
   docIds: string[];
 }
 
-export interface WorldDoc {
-  id: string;
-  title: string;
-  mode: EditorMode;
-}
-
+/** App-level metadata store; editor implementations own page content separately. */
 export interface WorldStore {
   categories: Category[];
-  docs: Record<string, WorldDoc>;
+  pages: Record<string, DocumentPage>;
 }
 
 const DEFAULT_DOC_MODE: EditorMode = 'document';
@@ -47,12 +40,10 @@ const INITIAL_DOCS: Record<string, { title: string; mode?: EditorMode }[]> = {
 
 /** localStorage keys for persisting metadata. */
 const CATEGORIES_STORAGE_KEY = 'litd:categories';
-const DOCS_STORAGE_KEY = 'litd:docs';
+const PAGES_STORAGE_KEY = 'litd:pages';
+const LEGACY_DOCS_STORAGE_KEY = 'litd:docs';
 
-type StoredDocs = Record<string, WorldDoc>;
-
-const yDocCache = new Map<string, Y.Doc>();
-const yPersistenceCache = new Map<string, IndexeddbPersistence>();
+type StoredPages = Record<string, DocumentPage>;
 
 function generateDocId(): string {
   return `doc-${crypto.randomUUID()}`;
@@ -67,9 +58,9 @@ export function saveCategories(categories: Category[]): void {
   }
 }
 
-function saveDocs(docs: StoredDocs): void {
+function savePages(pages: StoredPages): void {
   try {
-    localStorage.setItem(DOCS_STORAGE_KEY, JSON.stringify(docs));
+    localStorage.setItem(PAGES_STORAGE_KEY, JSON.stringify(pages));
   } catch {
     // localStorage may be unavailable (e.g. private browsing quota exceeded)
   }
@@ -97,12 +88,12 @@ function isEditorMode(value: unknown): value is EditorMode {
   return value === 'document' || value === 'canvas';
 }
 
-function isValidDocs(value: unknown): value is StoredDocs {
+function isValidPages(value: unknown): value is StoredPages {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
 
-  return Object.entries(value).every(([id, doc]) => {
-    if (doc === null || typeof doc !== 'object') return false;
-    const record = doc as Record<string, unknown>;
+  return Object.entries(value).every(([id, page]) => {
+    if (page === null || typeof page !== 'object') return false;
+    const record = page as Record<string, unknown>;
     return (
       typeof id === 'string' &&
       typeof record.id === 'string' &&
@@ -140,12 +131,13 @@ function loadCategories(): Category[] | null {
   }
 }
 
-function loadDocs(): StoredDocs | null {
+function loadPages(): StoredPages | null {
   try {
-    const raw = localStorage.getItem(DOCS_STORAGE_KEY);
+    const raw =
+      localStorage.getItem(PAGES_STORAGE_KEY) ?? localStorage.getItem(LEGACY_DOCS_STORAGE_KEY);
     if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
-    return isValidDocs(parsed) ? parsed : null;
+    return isValidPages(parsed) ? parsed : null;
   } catch {
     return null;
   }
@@ -161,13 +153,13 @@ function createSeedStore(): WorldStore {
     { id: 'bestiary', label: 'Bestiary', newLabel: 'Entry', docIds: [] },
   ];
 
-  const docs: StoredDocs = {};
+  const pages: StoredPages = {};
 
   for (const category of categories) {
     const defs = INITIAL_DOCS[category.id] ?? [];
     for (const def of defs) {
       const id = generateDocId();
-      docs[id] = {
+      pages[id] = {
         id,
         title: def.title,
         mode: def.mode ?? DEFAULT_DOC_MODE,
@@ -176,16 +168,16 @@ function createSeedStore(): WorldStore {
     }
   }
 
-  return { categories, docs };
+  return { categories, pages };
 }
 
-function reconcileStore(categories: Category[], docs: StoredDocs): WorldStore {
+function reconcileStore(categories: Category[], pages: StoredPages): WorldStore {
   const reconciledCategories = categories.map((category) => ({
     ...category,
     docIds: category.docIds.filter((docId) => {
-      if (docs[docId]) return true;
+      if (pages[docId]) return true;
       console.warn(`Recovered missing document metadata for "${docId}" from saved categories.`);
-      docs[docId] = {
+      pages[docId] = {
         id: docId,
         title: 'Untitled',
         mode: DEFAULT_DOC_MODE,
@@ -194,33 +186,33 @@ function reconcileStore(categories: Category[], docs: StoredDocs): WorldStore {
     }),
   }));
 
-  return { categories: reconciledCategories, docs };
+  return { categories: reconciledCategories, pages };
 }
 
 export function initWorldStore(): WorldStore {
   const storedCategories = loadCategories();
-  const storedDocs = loadDocs();
+  const storedPages = loadPages();
 
   if (storedCategories) {
-    const store = reconcileStore(storedCategories, storedDocs ?? {});
+    const store = reconcileStore(storedCategories, storedPages ?? {});
     saveCategories(store.categories);
-    saveDocs(store.docs);
+    savePages(store.pages);
     return store;
   }
 
   const seeded = createSeedStore();
   saveCategories(seeded.categories);
-  saveDocs(seeded.docs);
+  savePages(seeded.pages);
   return seeded;
 }
 
-export function addDocToCategory(
+export function addPageToCategory(
   store: WorldStore,
   categoryId: string,
   title: string,
 ): string {
   const id = generateDocId();
-  store.docs[id] = {
+  store.pages[id] = {
     id,
     title,
     mode: DEFAULT_DOC_MODE,
@@ -231,41 +223,24 @@ export function addDocToCategory(
     category.docIds.push(id);
   }
 
-  saveDocs(store.docs);
+  savePages(store.pages);
   saveCategories(store.categories);
   return id;
 }
 
-export function getDocTitle(store: WorldStore, docId: string): string {
-  return store.docs[docId]?.title ?? 'Untitled';
+export function getPageTitle(store: WorldStore, pageId: string): string {
+  return store.pages[pageId]?.title ?? 'Untitled';
 }
 
-export function getDoc(store: WorldStore, docId: string): WorldDoc | null {
-  return store.docs[docId] ?? null;
+export function getPage(store: WorldStore, pageId: string): DocumentPage | null {
+  return store.pages[pageId] ?? null;
 }
 
-export function setDocMode(store: WorldStore, docId: string, mode: EditorMode): void {
-  const doc = store.docs[docId];
-  if (!doc || doc.mode === mode) return;
-  doc.mode = mode;
-  saveDocs(store.docs);
-}
-
-export function getCollaborationDoc(docId: string): Y.Doc {
-  const cached = yDocCache.get(docId);
-  if (cached) return cached;
-
-  const yDoc = new Y.Doc();
-  yDocCache.set(docId, yDoc);
-  yPersistenceCache.set(docId, new IndexeddbPersistence(`litd:tiptap:${docId}`, yDoc));
-  return yDoc;
-}
-
-export function releaseCollaborationDoc(docId: string): void {
-  yPersistenceCache.get(docId)?.destroy();
-  yPersistenceCache.delete(docId);
-  yDocCache.get(docId)?.destroy();
-  yDocCache.delete(docId);
+export function setPageMode(store: WorldStore, pageId: string, mode: EditorMode): void {
+  const page = store.pages[pageId];
+  if (!page || page.mode === mode) return;
+  page.mode = mode;
+  savePages(store.pages);
 }
 
 /**

@@ -2,9 +2,9 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Editor } from './components/Editor';
 import { EditorToolbar } from './components/EditorToolbar';
-import { initWorldStore, getDocTitle, getDoc, setDocMode } from './lib/collection';
+import { initWorldStore, getPageTitle, getPage, setPageMode } from './lib/collection';
 import type { WorldStore } from './lib/collection';
-import type { EditorMode } from './lib/collection';
+import type { EditorMode } from './lib/document-pages';
 import type { ThemeId } from './themes';
 import { DEFAULT_THEME, applyTheme } from './themes';
 import './themes/themes.css';
@@ -18,34 +18,34 @@ const DEFAULT_DOC_MODE: EditorMode = 'document';
 
 function App() {
   const [, forceUpdate] = useState(0);
-  const [activeDocId, setActiveDocId] = useState<string | null>(
+  const [activePageId, setActivePageId] = useState<string | null>(
     store.categories[0]?.docIds[0] ?? null,
   );
   const [theme, setTheme] = useState<ThemeId>(DEFAULT_THEME);
   // Keep a ref so the storeChange callback can always read the latest value.
-  const activeDocIdRef = useRef<string | null>(activeDocId);
-  activeDocIdRef.current = activeDocId;
+  const activePageIdRef = useRef<string | null>(activePageId);
+  activePageIdRef.current = activePageId;
 
   useEffect(() => {
     applyTheme(theme);
   }, [theme]);
 
-  const activeDoc = activeDocId ? getDoc(store, activeDocId) : null;
+  const activePage = activePageId ? getPage(store, activePageId) : null;
 
-  const activeMode: EditorMode = activeDoc?.mode ?? DEFAULT_DOC_MODE;
+  const activeMode: EditorMode = activePage?.mode ?? DEFAULT_DOC_MODE;
 
-  const activeTitle = activeDocId ? getDocTitle(store, activeDocId) : '';
+  const activeTitle = activePageId ? getPageTitle(store, activePageId) : '';
 
-  const handleSelectDoc = useCallback((docId: string) => {
-    setActiveDocId(docId);
+  const handleSelectPage = useCallback((pageId: string) => {
+    setActivePageId(pageId);
   }, []);
 
   const handleStoreChange = useCallback(() => {
     // If the previously active doc has been removed from all categories, clear it
     // and fall back to the first available doc (first category, first entry).
     const allDocIds = new Set(store.categories.flatMap((c) => c.docIds));
-    if (activeDocIdRef.current !== null && !allDocIds.has(activeDocIdRef.current)) {
-      setActiveDocId(store.categories.flatMap((c) => c.docIds)[0] ?? null);
+    if (activePageIdRef.current !== null && !allDocIds.has(activePageIdRef.current)) {
+      setActivePageId(store.categories.flatMap((c) => c.docIds)[0] ?? null);
     }
     forceUpdate((n) => n + 1);
   }, []);
@@ -56,32 +56,32 @@ function App() {
 
   const handleModeChange = useCallback(
     (mode: EditorMode) => {
-      if (!activeDocId) return;
-      setDocMode(store, activeDocId, mode);
+      if (!activePageId) return;
+      setPageMode(store, activePageId, mode);
       forceUpdate((n) => n + 1);
     },
-    [activeDocId],
+    [activePageId],
   );
 
   return (
     <div className="app">
       <Sidebar
         store={store}
-        activeDocId={activeDocId}
-        onSelectDoc={handleSelectDoc}
+        activePageId={activePageId}
+        onSelectPage={handleSelectPage}
         onStoreChange={handleStoreChange}
         currentTheme={theme}
         onThemeSwitch={handleThemeSwitch}
       />
       <main className="main">
-        {activeDoc && (
+        {activePage && (
           <EditorToolbar
-            docTitle={activeTitle}
+            pageTitle={activeTitle}
             mode={activeMode}
             onModeChange={handleModeChange}
           />
         )}
-        <Editor doc={activeDoc} theme={theme} />
+        <Editor page={activePage} theme={theme} />
       </main>
     </div>
   );
