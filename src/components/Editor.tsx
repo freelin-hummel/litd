@@ -1,18 +1,16 @@
-import Collaboration from '@tiptap/extension-collaboration';
-import Placeholder from '@tiptap/extension-placeholder';
-import StarterKit from '@tiptap/starter-kit';
-import { EditorContent, useEditor } from '@tiptap/react';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { DefaultQuickActions, Tldraw } from 'tldraw';
 import { Zap } from 'lucide-react';
 import type { ThemeId } from '../themes';
 import { getThemeMeta } from '../themes';
-import { getCollaborationDoc, releaseCollaborationDoc } from '../lib/collection';
-import type { WorldDoc } from '../lib/collection';
+import type { DocumentEditorBoundary } from '../lib/document-editor';
+import type { DocumentPage } from '../lib/document-pages';
+import { TIPTAP_DOCUMENT_EDITOR } from './TipTapDocumentEditor';
 
 interface EditorProps {
-  doc: WorldDoc | null;
+  page: DocumentPage | null;
   theme: ThemeId;
+  documentEditor?: DocumentEditorBoundary;
 }
 
 interface CanvasMountedEditor {
@@ -21,54 +19,15 @@ interface CanvasMountedEditor {
   };
 }
 
-function DocumentEditor({ doc }: { doc: WorldDoc }) {
-  const collaborationDoc = useMemo(() => getCollaborationDoc(doc.id), [doc.id]);
-
-  useEffect(() => {
-    const currentDocId = doc.id;
-    return () => releaseCollaborationDoc(currentDocId);
-  }, [doc.id]);
-
-  const editor = useEditor(
-    {
-      extensions: [
-        StarterKit.configure({
-          undoRedo: false,
-        }),
-        Placeholder.configure({
-          placeholder: 'Start writing your world-building notes…',
-          emptyEditorClass: 'is-editor-empty',
-        }),
-        Collaboration.configure({
-          document: collaborationDoc,
-          field: 'content',
-        }),
-      ],
-      editorProps: {
-        attributes: {
-          class: 'editor-document-content',
-        },
-      },
-      immediatelyRender: false,
-    },
-    [collaborationDoc],
-  );
-
-  if (!editor) {
-    return (
-      <div className="editor-loading">
-        <span>Loading document…</span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="editor-document-shell">
-      <div className="editor-document-inner">
-        <EditorContent editor={editor} />
-      </div>
-    </div>
-  );
+function DocumentEditor({
+  page,
+  documentEditor,
+}: {
+  page: DocumentPage;
+  documentEditor: DocumentEditorBoundary;
+}) {
+  const Surface = documentEditor.Surface;
+  return <Surface page={page} />;
 }
 
 const TLDRAW_COMPONENTS = {
@@ -76,7 +35,7 @@ const TLDRAW_COMPONENTS = {
   QuickActions: DefaultQuickActions,
 } as const;
 
-function CanvasEditor({ doc, theme }: { doc: WorldDoc; theme: ThemeId }) {
+function CanvasEditor({ page, theme }: { page: DocumentPage; theme: ThemeId }) {
   const colorScheme = getThemeMeta(theme).appearance;
   const editorRef = useRef<CanvasMountedEditor | null>(null);
 
@@ -94,7 +53,7 @@ function CanvasEditor({ doc, theme }: { doc: WorldDoc; theme: ThemeId }) {
     <div className="editor-canvas-shell">
       <div className="editor-canvas-badge">Canvas mode</div>
       <Tldraw
-        persistenceKey={`litd:tldraw:${doc.id}`}
+        persistenceKey={`litd:tldraw:${page.id}`}
         components={TLDRAW_COMPONENTS}
         onMount={(editor) => {
           editorRef.current = editor as CanvasMountedEditor;
@@ -105,8 +64,12 @@ function CanvasEditor({ doc, theme }: { doc: WorldDoc; theme: ThemeId }) {
   );
 }
 
-export function Editor({ doc, theme }: EditorProps) {
-  if (!doc) {
+export function Editor({
+  page,
+  theme,
+  documentEditor = TIPTAP_DOCUMENT_EDITOR,
+}: EditorProps) {
+  if (!page) {
     return (
       <div className="editor-empty">
         <div className="editor-empty-content">
@@ -122,7 +85,11 @@ export function Editor({ doc, theme }: EditorProps) {
 
   return (
     <div className="editor-host">
-      {doc.mode === 'canvas' ? <CanvasEditor doc={doc} theme={theme} /> : <DocumentEditor doc={doc} />}
+      {page.mode === 'canvas' ? (
+        <CanvasEditor page={page} theme={theme} />
+      ) : (
+        <DocumentEditor page={page} documentEditor={documentEditor} />
+      )}
     </div>
   );
 }

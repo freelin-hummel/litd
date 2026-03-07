@@ -1,6 +1,6 @@
 # LITD — Collaborative TTRPG Worldbuilder
 
-A collaborative tabletop RPG worldbuilding application powered by [TipTap](https://tiptap.dev/) and [tldraw](https://tldraw.dev/).
+A collaborative tabletop RPG worldbuilding application with a replaceable document-editor boundary, currently powered by [TipTap](https://tiptap.dev/) and [tldraw](https://tldraw.dev/).
 
 ## Features
 
@@ -44,8 +44,14 @@ Those tokens are used by:
 
 - the app shell styles in `src/App.css`
 - the shared primitives in `src/primitives/primitives.css`
-- TipTap document surfaces in `src/components/Editor.tsx` / `src/App.css`
+- TipTap document surfaces in `src/components/TipTapDocumentEditor.tsx` / `src/App.css`
 - tldraw theme overrides in `src/components/Editor.tsx` / `src/App.css`
+
+## Page/editor boundary
+
+`DocumentPage` in `src/lib/document-pages.ts` is the app-facing page contract used for page identity, title, and current mode. Sidebar selection and metadata persistence live in `src/lib/collection.ts`, so document mode and canvas mode continue to share the same page identity even though they render through different surfaces.
+
+Document-mode content now sits behind `DocumentEditorBoundary` in `src/lib/document-editor.ts`. The current `TIPTAP_DOCUMENT_EDITOR` implementation keeps TipTap/Yjs loading and cleanup in `src/components/TipTapDocumentEditor.tsx` and `src/lib/tiptap-document-store.ts`, which gives the Lexical migration a single internal replacement point instead of letting editor-specific assumptions spread across the app.
 
 Adding a new theme requires only two steps:
 1. Add a `[data-theme="my-theme"]` block to `src/themes/themes.css` mapping the flavor tokens
@@ -88,16 +94,16 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 ## Adding Real-Time Collaboration
 
 TipTap's collaboration extension is built on top of [Yjs](https://github.com/yjs/yjs) CRDTs. To enable
-live multi-user sync, attach a Hocuspocus or Yjs provider to the document returned by
-`getCollaborationDoc(docId)`:
+live multi-user sync for the current TipTap-backed document implementation, attach a Hocuspocus or
+Yjs provider to the Y.Doc returned by `getTipTapDocument(pageId)`:
 
 ```ts
 import { HocuspocusProvider } from '@hocuspocus/provider';
-import { getCollaborationDoc } from './src/lib/collection';
+import { getTipTapDocument } from './src/lib/tiptap-document-store';
 
 const provider = new HocuspocusProvider({
   url: 'wss://your-server.example.com',
   name: 'litd-room',
-  document: getCollaborationDoc(docId),
+  document: getTipTapDocument(pageId),
 });
 ```

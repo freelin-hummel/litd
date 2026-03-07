@@ -2,9 +2,9 @@ import { useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import type { Category, WorldStore } from '../lib/collection';
 import {
+  addPageToCategory,
   addCategory,
-  addDocToCategory,
-  getDocTitle,
+  getPageTitle,
   removeCategory,
   renameCategory,
 } from '../lib/collection';
@@ -36,22 +36,22 @@ import { ThemeSwitcher } from './ThemeSwitcher';
 
 interface SidebarProps {
   store: WorldStore;
-  activeDocId: string | null;
-  onSelectDoc: (docId: string) => void;
+  activePageId: string | null;
+  onSelectPage: (pageId: string) => void;
   onStoreChange: () => void;
   currentTheme: ThemeId;
   onThemeSwitch: (next: ThemeId) => void;
 }
 
 type SidebarDialogState =
-  | { kind: 'delete'; categoryId: string; label: string; docCount: number }
+  | { kind: 'delete'; categoryId: string; label: string; pageCount: number }
   | { kind: 'error'; title: string; description: string }
   | null;
 
 export function Sidebar({
   store,
-  activeDocId,
-  onSelectDoc,
+  activePageId,
+  onSelectPage,
   onStoreChange,
   currentTheme,
   onThemeSwitch,
@@ -93,9 +93,9 @@ export function Sidebar({
   function commitAddDoc(categoryId: string) {
     const title = newDocTitle.trim();
     if (title) {
-      const docId = addDocToCategory(store, categoryId, title);
+      const pageId = addPageToCategory(store, categoryId, title);
       onStoreChange();
-      onSelectDoc(docId);
+      onSelectPage(pageId);
     }
     setAddingDocTo(null);
     setNewDocTitle('');
@@ -144,12 +144,12 @@ export function Sidebar({
     const category = store.categories.find((entry) => entry.id === categoryId);
     if (!category) return;
 
-    setDialogState({
-      kind: 'delete',
-      categoryId,
-      label: category.label,
-      docCount: category.docIds.length,
-    });
+      setDialogState({
+        kind: 'delete',
+        categoryId,
+        label: category.label,
+        pageCount: category.pageIds.length,
+      });
   }
 
   function confirmDeleteCategory() {
@@ -201,8 +201,8 @@ export function Sidebar({
     dialogState?.kind === 'delete' ? `Delete “${dialogState.label}”?` : dialogState?.title ?? '';
   const activeDialogDescription =
     dialogState?.kind === 'delete'
-      ? dialogState.docCount > 0
-        ? `This category contains ${dialogState.docCount} document(s). The sidebar grouping will be removed, but the underlying documents remain stored locally.`
+      ? dialogState.pageCount > 0
+        ? `This category contains ${dialogState.pageCount} document(s). The sidebar grouping will be removed, but the underlying documents remain stored locally.`
         : 'This category will be removed from the sidebar.'
       : dialogState?.description ?? '';
 
@@ -292,17 +292,17 @@ export function Sidebar({
                 </div>
                 <CollapsibleContent>
                   <ul className="sidebar-doc-list">
-                    {category.docIds.map((docId) => (
-                      <li key={docId}>
+                    {category.pageIds.map((pageId) => (
+                      <li key={pageId}>
                         <Button
-                          className={`sidebar-doc-item ${activeDocId === docId ? 'active' : ''}`}
+                          className={`sidebar-doc-item ${activePageId === pageId ? 'active' : ''}`}
                           variant="ghost"
                           size="sm"
-                          onClick={() => onSelectDoc(docId)}
-                          title={getDocTitle(store, docId)}
+                          onClick={() => onSelectPage(pageId)}
+                          title={getPageTitle(store, pageId)}
                         >
                           <FileText size={11} aria-hidden="true" />
-                          <span className="sidebar-doc-title">{getDocTitle(store, docId)}</span>
+                          <span className="sidebar-doc-title">{getPageTitle(store, pageId)}</span>
                         </Button>
                       </li>
                     ))}
