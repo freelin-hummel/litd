@@ -29,7 +29,7 @@ export function EditorToolbar({ docTitle, mode, onModeChange }: EditorToolbarPro
           className="editor-mode-btn"
           value="document"
           aria-label="Document mode"
-          title="Collaborative rich text powered by TipTap."
+          title="Collaborative rich text powered by Lexical."
         >
           <DocumentModeIcon size={14} aria-hidden="true" />
           Document

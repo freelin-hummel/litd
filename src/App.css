@@ -322,6 +322,10 @@ body {
   box-shadow: var(--theme-shadow-elevated);
 }
 
+.editor-document-surface {
+  position: relative;
+}
+
 .editor-document-content {
   min-height: calc(100vh - 180px);
   color: var(--theme-text);
@@ -329,6 +333,14 @@ body {
   font-size: 15px;
   line-height: 1.68;
   outline: none;
+}
+
+.editor-document-placeholder {
+  position: absolute;
+  top: 0;
+  left: 0;
+  color: var(--theme-text-muted);
+  pointer-events: none;
 }
 
 .editor-document-content > * + * {
@@ -385,12 +397,8 @@ body {
   padding: 0;
 }
 
-.editor-document-content .is-editor-empty:first-child::before {
-  color: var(--theme-text-muted);
-  content: attr(data-placeholder);
-  float: left;
-  height: 0;
-  pointer-events: none;
+.editor-document-content[contenteditable='true'] {
+  caret-color: var(--theme-accent);
 }
 
 .editor-loading {

@@ -11,6 +11,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@lexical/history": "^0.41.0",
+    "@lexical/list": "^0.41.0",
+    "@lexical/react": "^0.41.0",
+    "@lexical/rich-text": "^0.41.0",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-collapsible": "^1.1.12",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
@@ -20,6 +24,7 @@
     "@tiptap/extension-placeholder": "3.20.1",
     "@tiptap/react": "3.20.1",
     "@tiptap/starter-kit": "3.20.1",
+    "lexical": "^0.41.0",
     "lucide-react": "^0.577.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
