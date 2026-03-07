@@ -165,6 +165,8 @@ export function LexicalDocumentEditor({
 
   const initialEditorState = useCallback(
     (editor: LexicalEditor) => {
+      // Keep the bootstrap callback aligned with the current page metadata so a
+      // newly mounted document session seeds Lexical from the matching markdown snapshot.
       editor.update(() => {
         $convertFromMarkdownString(page.markdown, TRANSFORMERS);
       });
