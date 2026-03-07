@@ -19,6 +19,10 @@ type StatusListener = (status: ProviderStatus) => void;
 type UpdateListener = (arg: unknown) => void;
 type ReloadListener = (doc: Y.Doc) => void;
 type ProviderEventName = 'sync' | 'status' | 'update' | 'reload';
+type PersistenceWithSyncState = IndexeddbPersistence & {
+  synced?: boolean;
+  whenSynced?: Promise<unknown>;
+};
 
 function emitAll<T>(listeners: Set<(payload: T) => void>, payload: T): void {
   for (const listener of listeners) {
@@ -39,16 +43,12 @@ class LocalAwareness implements ProviderAwareness {
     return this.localState ? new Map([[0, this.localState]]) : new Map();
   }
 
-  on(type: 'update', cb: () => void): void {
-    if (type === 'update') {
-      this.listeners.add(cb);
-    }
+  on(_type: 'update', cb: () => void): void {
+    this.listeners.add(cb);
   }
 
-  off(type: 'update', cb: () => void): void {
-    if (type === 'update') {
-      this.listeners.delete(cb);
-    }
+  off(_type: 'update', cb: () => void): void {
+    this.listeners.delete(cb);
   }
 
   setLocalState(state: UserState | null): void {
@@ -87,6 +87,10 @@ class LocalCollaborationProvider implements Provider {
 
   constructor(private readonly persistence: IndexeddbPersistence) {}
 
+  private get persistenceState(): PersistenceWithSyncState {
+    return this.persistence as PersistenceWithSyncState;
+  }
+
   connect(): Promise<void> | void {
     if (this.connected) {
       this.emitStatus('connected');
@@ -97,12 +101,12 @@ class LocalCollaborationProvider implements Provider {
     this.connected = true;
     this.emitStatus('connected');
 
-    if ((this.persistence as { synced?: boolean }).synced) {
+    if (this.persistenceState.synced) {
       this.emitSync(true);
       return;
     }
 
-    return (this.persistence as { whenSynced?: Promise<unknown> }).whenSynced?.then(() => {
+    return this.persistenceState.whenSynced?.then(() => {
       if (this.connected) {
         this.emitSync(true);
       }
@@ -180,6 +184,8 @@ export function createCollaborationSession(docId: string): CollaborationSession 
   // Lexical stores a different Yjs schema than the previous TipTap/ProseMirror editor,
   // so the migration uses a dedicated persistence namespace and relies on markdown
   // page snapshots for interoperability instead of reusing the old IndexedDB payload.
+  // Existing TipTap data is not auto-migrated in place; loading a page seeds the new
+  // Lexical document from its markdown snapshot under this Lexical-specific namespace.
   const persistence = new IndexeddbPersistence(`litd:lexical:${docId}`, doc);
   const provider = new LocalCollaborationProvider(persistence);
 

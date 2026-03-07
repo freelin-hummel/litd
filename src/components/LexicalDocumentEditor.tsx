@@ -147,6 +147,7 @@ export function LexicalDocumentEditor({
   onPageChange,
 }: LexicalDocumentEditorProps) {
   const session = useMemo(() => getCollaborationSession(docId), [docId]);
+  const initialMarkdownRef = useRef(page.markdown);
 
   const initialConfig = useMemo<InitialConfigType>(
     () => ({
@@ -165,13 +166,14 @@ export function LexicalDocumentEditor({
 
   const initialEditorState = useCallback(
     (editor: LexicalEditor) => {
-      // Keep the bootstrap callback aligned with the current page metadata so a
-      // newly mounted document session seeds Lexical from the matching markdown snapshot.
+      // Seed the initial Lexical state once from the page snapshot that was active
+      // when this editor instance mounted. Subsequent edits flow through Yjs and
+      // onPageChange without needing to recreate the bootstrap callback.
       editor.update(() => {
-        $convertFromMarkdownString(page.markdown, TRANSFORMERS);
+        $convertFromMarkdownString(initialMarkdownRef.current, TRANSFORMERS);
       });
     },
-    [page.markdown],
+    [],
   );
 
   return (

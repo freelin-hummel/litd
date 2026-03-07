@@ -18,8 +18,8 @@ import './App.css';
 
 const store: WorldStore = initWorldStore();
 
-/** Default editor mode for all new pages. */
-const DEFAULT_PAGE_MODE: EditorMode = 'document';
+/** Default editor mode for newly created document pages. */
+const DEFAULT_DOCUMENT_MODE: EditorMode = 'document';
 
 function App() {
   const [, forceUpdate] = useState(0);
@@ -35,7 +35,7 @@ function App() {
 
   const activePage = activePageId ? getPage(store, activePageId) : null;
 
-  const activeMode: EditorMode = activePage?.mode ?? DEFAULT_PAGE_MODE;
+  const activeMode: EditorMode = activePage?.mode ?? DEFAULT_DOCUMENT_MODE;
 
   const activeTitle = activePage?.title ?? '';
 

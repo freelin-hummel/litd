@@ -39,7 +39,7 @@ interface SidebarProps {
 }
 
 type SidebarDialogState =
-  | { kind: 'delete'; categoryId: string; label: string; docCount: number }
+  | { kind: 'delete'; categoryId: string; label: string; pageCount: number }
   | { kind: 'error'; title: string; description: string }
   | null;
 
@@ -143,7 +143,7 @@ export function Sidebar({
       kind: 'delete',
       categoryId,
       label: category.label,
-      docCount: category.docIds.length,
+      pageCount: category.docIds.length,
     });
   }
 
@@ -196,8 +196,8 @@ export function Sidebar({
     dialogState?.kind === 'delete' ? `Delete “${dialogState.label}”?` : dialogState?.title ?? '';
   const activeDialogDescription =
     dialogState?.kind === 'delete'
-      ? dialogState.docCount > 0
-        ? `This category contains ${dialogState.docCount} page(s). The sidebar grouping will be removed, but the underlying pages remain stored locally.`
+      ? dialogState.pageCount > 0
+        ? `This category contains ${dialogState.pageCount} page(s). The sidebar grouping will be removed, but the underlying pages remain stored locally.`
         : 'This category will be removed from the sidebar.'
       : dialogState?.description ?? '';
 

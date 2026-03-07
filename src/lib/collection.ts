@@ -202,7 +202,7 @@ function reconcileStore(categories: Category[], docs: StoredDocs): WorldStore {
     ...category,
     docIds: category.docIds.filter((docId) => {
       if (docs[docId]) return true;
-      console.warn(`Recovered missing document metadata for "${docId}" from saved categories.`);
+      console.warn(`Created placeholder document record for "${docId}" from saved categories.`);
       docs[docId] = {
         id: docId,
         title: 'Untitled',
