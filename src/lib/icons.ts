@@ -39,8 +39,8 @@ export function getCategoryIcon(categoryId: string): LucideIcon {
   return BUILTIN_CATEGORY_ICONS[categoryId] ?? Folder;
 }
 
-/** Page-editor mode icon (structured document / text) */
-export const PageModeIcon = AlignLeft;
+/** Document-editor mode icon (structured document / text) */
+export const DocumentModeIcon = AlignLeft;
 
 /** Edgeless-editor mode icon (canvas / map) */
 export const CanvasModeIcon = Map;

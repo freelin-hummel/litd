@@ -1,11 +1,10 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import type { DocMode } from '@blocksuite/blocks';
 import { Sidebar } from './components/Sidebar';
 import { Editor } from './components/Editor';
 import { EditorToolbar } from './components/EditorToolbar';
-import { initWorldStore, getDocTitle } from './lib/collection';
+import { initWorldStore, getDocTitle, getDoc, setDocMode } from './lib/collection';
 import type { WorldStore } from './lib/collection';
-import type { Doc } from '@blocksuite/store';
+import type { EditorMode } from './lib/collection';
 import type { ThemeId } from './themes';
 import { DEFAULT_THEME, applyTheme } from './themes';
 import './themes/themes.css';
@@ -14,7 +13,7 @@ import './App.css';
 const store: WorldStore = initWorldStore();
 
 /** Default editor mode for all new documents. */
-const DEFAULT_DOC_MODE: DocMode = 'page';
+const DEFAULT_DOC_MODE: EditorMode = 'document';
 
 function App() {
   const [, forceUpdate] = useState(0);
@@ -22,9 +21,6 @@ function App() {
     store.categories[0]?.docIds[0] ?? null,
   );
   const [theme, setTheme] = useState<ThemeId>(DEFAULT_THEME);
-  // Per-document editor mode: docId → DocMode
-  const [docModes, setDocModes] = useState<Map<string, DocMode>>(() => new Map());
-
   // Keep a ref so the storeChange callback can always read the latest value.
   const activeDocIdRef = useRef<string | null>(activeDocId);
   activeDocIdRef.current = activeDocId;
@@ -33,14 +29,11 @@ function App() {
     applyTheme(theme);
   }, [theme]);
 
-  const activeDoc: Doc | null = activeDocId
-    ? (store.collection.getDoc(activeDocId) ?? null)
-    : null;
+  const activeDoc = activeDocId ? getDoc(store, activeDocId) : null;
 
-  const activeMode: DocMode =
-    (activeDocId != null ? docModes.get(activeDocId) : undefined) ?? DEFAULT_DOC_MODE;
+  const activeMode: EditorMode = activeDoc?.mode ?? DEFAULT_DOC_MODE;
 
-  const activeTitle = activeDocId ? getDocTitle(store.collection, activeDocId) : '';
+  const activeTitle = activeDocId ? getDocTitle(store, activeDocId) : '';
 
   const handleSelectDoc = useCallback((docId: string) => {
     setActiveDocId(docId);
@@ -61,9 +54,10 @@ function App() {
   }, []);
 
   const handleModeChange = useCallback(
-    (mode: DocMode) => {
+    (mode: EditorMode) => {
       if (!activeDocId) return;
-      setDocModes((prev) => new Map(prev).set(activeDocId, mode));
+      setDocMode(store, activeDocId, mode);
+      forceUpdate((n) => n + 1);
     },
     [activeDocId],
   );
@@ -86,7 +80,7 @@ function App() {
             onModeChange={handleModeChange}
           />
         )}
-        <Editor doc={activeDoc} mode={activeMode} />
+        <Editor doc={activeDoc} />
       </main>
     </div>
   );
