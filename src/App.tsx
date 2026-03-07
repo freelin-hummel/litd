@@ -81,10 +81,11 @@ function App() {
           <EditorToolbar
             docTitle={activeTitle}
             mode={activeMode}
+            workspace={store.workspace}
             onModeChange={handleModeChange}
           />
         )}
-        <Editor doc={activePage} theme={theme} />
+        <Editor doc={activePage} theme={theme} workspace={store.workspace} />
       </main>
     </div>
   );

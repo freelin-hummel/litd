@@ -42,7 +42,21 @@ export interface WorldDoc {
   page: DocumentPage;
 }
 
+export interface WorkspaceModeMetadata {
+  label: string;
+  description: string;
+  sidebarMeta: string;
+  badgeLabel: string;
+}
+
+export interface WorkspaceMetadata {
+  title: string;
+  subtitle: string;
+  modes: Record<EditorMode, WorkspaceModeMetadata>;
+}
+
 export interface WorldStore {
+  workspace: WorkspaceMetadata;
   categories: Category[];
   docs: Record<string, WorldDoc>;
 }
@@ -122,12 +136,34 @@ const DEFAULT_WORKSPACE_CATEGORY_SEEDS_BY_ID = new Map(
 );
 
 /** localStorage keys for persisting metadata. */
+const WORKSPACE_STORAGE_KEY = 'litd:workspace';
 const CATEGORIES_STORAGE_KEY = 'litd:categories';
 const DOCS_STORAGE_KEY = 'litd:docs';
 
 type StoredDocs = Record<string, WorldDoc>;
 
 const collaborationSessionCache = new Map<string, CollaborationSession>();
+
+function createDefaultWorkspaceMetadata(): WorkspaceMetadata {
+  return {
+    title: 'LITD',
+    subtitle: 'Workspace',
+    modes: {
+      document: {
+        label: 'Document',
+        description: 'Structured page editor view over the shared workspace model.',
+        sidebarMeta: 'Markdown',
+        badgeLabel: 'Document view',
+      },
+      canvas: {
+        label: 'Canvas',
+        description: 'Spatial canvas view over the shared workspace model.',
+        sidebarMeta: 'Canvas',
+        badgeLabel: 'Canvas view',
+      },
+    },
+  };
+}
 
 function generateDocId(): string {
   return `doc-${crypto.randomUUID()}`;
@@ -145,6 +181,14 @@ export function saveCategories(categories: Category[]): void {
 function saveDocs(docs: StoredDocs): void {
   try {
     localStorage.setItem(DOCS_STORAGE_KEY, JSON.stringify(docs));
+  } catch {
+    // localStorage may be unavailable (e.g. private browsing quota exceeded)
+  }
+}
+
+function saveWorkspaceMetadata(workspace: WorkspaceMetadata): void {
+  try {
+    localStorage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify(workspace));
   } catch {
     // localStorage may be unavailable (e.g. private browsing quota exceeded)
   }
@@ -272,6 +316,51 @@ function normalizeCategory(value: Category): Category {
   };
 }
 
+function normalizeWorkspaceModeMetadata(
+  value: unknown,
+  fallback: WorkspaceModeMetadata,
+): WorkspaceModeMetadata {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return { ...fallback };
+  }
+
+  const record = value as Record<string, unknown>;
+  const label = typeof record.label === 'string' ? record.label.trim() : '';
+  const description = typeof record.description === 'string' ? record.description.trim() : '';
+  const sidebarMeta = typeof record.sidebarMeta === 'string' ? record.sidebarMeta.trim() : '';
+  const badgeLabel = typeof record.badgeLabel === 'string' ? record.badgeLabel.trim() : '';
+
+  return {
+    label: label || fallback.label,
+    description: description || fallback.description,
+    sidebarMeta: sidebarMeta || fallback.sidebarMeta,
+    badgeLabel: badgeLabel || fallback.badgeLabel,
+  };
+}
+
+function normalizeWorkspaceMetadata(value: unknown): WorkspaceMetadata {
+  const fallback = createDefaultWorkspaceMetadata();
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return fallback;
+  }
+
+  const record = value as Record<string, unknown>;
+  const title = typeof record.title === 'string' ? record.title.trim() : '';
+  const subtitle = typeof record.subtitle === 'string' ? record.subtitle.trim() : '';
+  const modes = record.modes !== null && typeof record.modes === 'object'
+    ? (record.modes as Record<string, unknown>)
+    : {};
+
+  return {
+    title: title || fallback.title,
+    subtitle: subtitle || fallback.subtitle,
+    modes: {
+      document: normalizeWorkspaceModeMetadata(modes.document, fallback.modes.document),
+      canvas: normalizeWorkspaceModeMetadata(modes.canvas, fallback.modes.canvas),
+    },
+  };
+}
+
 /** Load the collection list from localStorage, or return null if not found. */
 function loadCategories(): Category[] | null {
   try {
@@ -290,6 +379,17 @@ function loadDocs(): StoredDocs | null {
     if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
     return isValidDocs(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function loadWorkspaceMetadata(): WorkspaceMetadata | null {
+  try {
+    const raw = localStorage.getItem(WORKSPACE_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    return normalizeWorkspaceMetadata(parsed);
   } catch {
     return null;
   }
@@ -329,6 +429,7 @@ function syncStoredDocPage(store: WorldStore, docId: string): void {
 }
 
 function createSeedStore(): WorldStore {
+  const workspace = createDefaultWorkspaceMetadata();
   const categories: Category[] = DEFAULT_WORKSPACE_CATEGORY_SEEDS.map((seed) => ({
     id: seed.id,
     label: seed.label,
@@ -359,10 +460,14 @@ function createSeedStore(): WorldStore {
     }
   }
 
-  return { categories, docs };
+  return { workspace, categories, docs };
 }
 
-function reconcileStore(categories: Category[], docs: StoredDocs): WorldStore {
+function reconcileStore(
+  workspace: WorkspaceMetadata,
+  categories: Category[],
+  docs: StoredDocs,
+): WorldStore {
   const membership = new Map<string, { categoryIds: string[]; sortIndex: number | null }>();
 
   const reconciledCategories = categories.map((category) => {
@@ -414,21 +519,33 @@ function reconcileStore(categories: Category[], docs: StoredDocs): WorldStore {
     ]),
   ) as StoredDocs;
 
-  return { categories: reconciledCategories, docs: reconciledDocs };
+  return {
+    workspace: normalizeWorkspaceMetadata(workspace),
+    categories: reconciledCategories,
+    docs: reconciledDocs,
+  };
 }
 
 export function initWorldStore(): WorldStore {
+  const storedWorkspace = loadWorkspaceMetadata();
   const storedCategories = loadCategories();
   const storedDocs = loadDocs();
 
   if (storedCategories) {
-    const store = reconcileStore(storedCategories, storedDocs ?? {});
+    const store = reconcileStore(
+      storedWorkspace ?? createDefaultWorkspaceMetadata(),
+      storedCategories,
+      storedDocs ?? {},
+    );
+    saveWorkspaceMetadata(store.workspace);
     saveCategories(store.categories);
     saveDocs(store.docs);
     return store;
   }
 
   const seeded = createSeedStore();
+  seeded.workspace = storedWorkspace ?? seeded.workspace;
+  saveWorkspaceMetadata(seeded.workspace);
   saveCategories(seeded.categories);
   saveDocs(seeded.docs);
   return seeded;
@@ -500,6 +617,11 @@ export function releaseCollaborationSession(docId: string): void {
   if (!session) return;
   destroyCollaborationSession(session);
   collaborationSessionCache.delete(docId);
+}
+
+export function updateWorkspaceMetadata(store: WorldStore, workspace: WorkspaceMetadata): void {
+  store.workspace = normalizeWorkspaceMetadata(workspace);
+  saveWorkspaceMetadata(store.workspace);
 }
 
 /**

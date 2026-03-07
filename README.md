@@ -7,6 +7,7 @@ A collaborative knowledge workspace powered by [Lexical](https://lexical.dev/) a
 - **Rich document editing** via Lexical with Yjs-backed collaborative document state
 - **Freeform canvas mode** via tldraw for diagrams, layouts, and relationship boards
 - **Flexible sidebar collections** with metadata-driven icons, tags, pinning, custom fields, asset references, and grouping dimensions
+- **Editable workspace branding** for shell title/subtitle plus document/canvas labels and badges
 - **Seeded generic workspace collections**:
   - Notes · Research · People · Spaces · Projects
 - **Create new pages** in any collection with a single click

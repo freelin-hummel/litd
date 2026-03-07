@@ -4,6 +4,7 @@ import {
   setDocMode,
   type Category,
   type EditorMode,
+  type WorkspaceModeMetadata,
   type WorldDoc,
   type WorldStore,
 } from './collection';
@@ -29,23 +30,19 @@ export interface PageMetadata extends WorldDoc {
   serializationFormat: 'markdown' | 'canvas';
 }
 
-export const PAGE_MODE_DETAILS: Record<EditorMode, PageModeDetails> = {
-  document: {
-    label: 'Document',
-    description: 'Structured page editor view over the shared workspace model.',
-    sidebarMeta: 'Markdown',
-    serializationFormat: 'markdown',
-  },
-  canvas: {
-    label: 'Canvas',
-    description: 'Spatial canvas view over the shared workspace model.',
-    sidebarMeta: 'Canvas',
-    serializationFormat: 'canvas',
-  },
-};
+export function getPageModeDetails(store: WorldStore, mode: EditorMode): PageModeDetails {
+  const metadata: WorkspaceModeMetadata = store.workspace.modes[mode];
 
-function toPageMetadata(doc: WorldDoc): PageMetadata {
-  const details = PAGE_MODE_DETAILS[doc.mode];
+  return {
+    label: metadata.label,
+    description: metadata.description,
+    sidebarMeta: metadata.sidebarMeta,
+    serializationFormat: mode === 'document' ? 'markdown' : 'canvas',
+  };
+}
+
+function buildPageMetadata(store: WorldStore, doc: WorldDoc): PageMetadata {
+  const details = getPageModeDetails(store, doc.mode);
   const canonicalPage = doc.page.model.page;
 
   return {
@@ -68,7 +65,7 @@ function toPageMetadata(doc: WorldDoc): PageMetadata {
 
 export function getPage(store: WorldStore, pageId: string): PageMetadata | null {
   const doc = getDoc(store, pageId);
-  return doc ? toPageMetadata(doc) : null;
+  return doc ? buildPageMetadata(store, doc) : null;
 }
 
 export function getPageTitle(store: WorldStore, pageId: string): string {
