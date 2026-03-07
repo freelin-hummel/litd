@@ -57,7 +57,7 @@ function DocumentEditor({ doc }: { doc: WorldDoc }) {
   if (!editor) {
     return (
       <div className="editor-loading">
-        <span>Loading document…</span>
+        <span>Loading page…</span>
       </div>
     );
   }
@@ -113,7 +113,7 @@ export function Editor({ doc, theme }: EditorProps) {
           <span className="editor-empty-icon" aria-hidden="true">
             <Zap size={48} strokeWidth={1.5} />
           </span>
-          <h2>Select a document to begin</h2>
+          <h2>Select a page to begin</h2>
           <p>Choose an entry from the sidebar, or create a new one.</p>
         </div>
       </div>

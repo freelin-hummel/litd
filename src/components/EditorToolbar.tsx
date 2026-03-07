@@ -1,4 +1,5 @@
 import type { EditorMode } from '../lib/collection';
+import { PAGE_MODE_DETAILS } from '../lib/pages';
 import { CanvasModeIcon, DocumentModeIcon } from '../lib/icons';
 import { ToggleGroup, ToggleGroupItem } from '../primitives';
 
@@ -29,19 +30,19 @@ export function EditorToolbar({ docTitle, mode, onModeChange }: EditorToolbarPro
           className="editor-mode-btn"
           value="document"
           aria-label="Document mode"
-          title="Collaborative rich text powered by TipTap."
+          title={PAGE_MODE_DETAILS.document.description}
         >
           <DocumentModeIcon size={14} aria-hidden="true" />
-          Document
+          {PAGE_MODE_DETAILS.document.label}
         </ToggleGroupItem>
         <ToggleGroupItem
           className="editor-mode-btn"
           value="canvas"
           aria-label="Canvas mode"
-          title="Freeform maps and diagrams powered by tldraw."
+          title={PAGE_MODE_DETAILS.canvas.description}
         >
           <CanvasModeIcon size={14} aria-hidden="true" />
-          Canvas
+          {PAGE_MODE_DETAILS.canvas.label}
         </ToggleGroupItem>
       </ToggleGroup>
     </div>

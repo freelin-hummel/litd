@@ -1,13 +1,8 @@
 import { useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import type { Category, WorldStore } from '../lib/collection';
-import {
-  addCategory,
-  addDocToCategory,
-  getDocTitle,
-  removeCategory,
-  renameCategory,
-} from '../lib/collection';
+import { addCategory, removeCategory, renameCategory } from '../lib/collection';
+import { createPageInCategory, listCategoryPages } from '../lib/pages';
 import {
   getCategoryIcon,
   ChevronRight,
@@ -36,8 +31,8 @@ import { ThemeSwitcher } from './ThemeSwitcher';
 
 interface SidebarProps {
   store: WorldStore;
-  activeDocId: string | null;
-  onSelectDoc: (docId: string) => void;
+  activePageId: string | null;
+  onSelectPage: (pageId: string) => void;
   onStoreChange: () => void;
   currentTheme: ThemeId;
   onThemeSwitch: (next: ThemeId) => void;
@@ -50,8 +45,8 @@ type SidebarDialogState =
 
 export function Sidebar({
   store,
-  activeDocId,
-  onSelectDoc,
+  activePageId,
+  onSelectPage,
   onStoreChange,
   currentTheme,
   onThemeSwitch,
@@ -93,9 +88,9 @@ export function Sidebar({
   function commitAddDoc(categoryId: string) {
     const title = newDocTitle.trim();
     if (title) {
-      const docId = addDocToCategory(store, categoryId, title);
+      const pageId = createPageInCategory(store, categoryId, title);
       onStoreChange();
-      onSelectDoc(docId);
+      onSelectPage(pageId);
     }
     setAddingDocTo(null);
     setNewDocTitle('');
@@ -202,7 +197,7 @@ export function Sidebar({
   const activeDialogDescription =
     dialogState?.kind === 'delete'
       ? dialogState.docCount > 0
-        ? `This category contains ${dialogState.docCount} document(s). The sidebar grouping will be removed, but the underlying documents remain stored locally.`
+        ? `This category contains ${dialogState.docCount} page(s). The sidebar grouping will be removed, but the underlying pages remain stored locally.`
         : 'This category will be removed from the sidebar.'
       : dialogState?.description ?? '';
 
@@ -221,6 +216,7 @@ export function Sidebar({
             const CategoryIcon = getCategoryIcon(category.id);
             const isOpen = expanded.has(category.id);
             const isRenaming = renamingId === category.id;
+            const pages = listCategoryPages(store, category);
 
             return (
               <Collapsible
@@ -292,17 +288,20 @@ export function Sidebar({
                 </div>
                 <CollapsibleContent>
                   <ul className="sidebar-doc-list">
-                    {category.docIds.map((docId) => (
-                      <li key={docId}>
+                    {pages.map((page) => (
+                      <li key={page.id}>
                         <Button
-                          className={`sidebar-doc-item ${activeDocId === docId ? 'active' : ''}`}
+                          className={`sidebar-doc-item ${activePageId === page.id ? 'active' : ''}`}
                           variant="ghost"
                           size="sm"
-                          onClick={() => onSelectDoc(docId)}
-                          title={getDocTitle(store, docId)}
+                          onClick={() => onSelectPage(page.id)}
+                          title={`${page.title} · ${page.sidebarMeta}`}
                         >
                           <FileText size={11} aria-hidden="true" />
-                          <span className="sidebar-doc-title">{getDocTitle(store, docId)}</span>
+                          <span className="sidebar-doc-content">
+                            <span className="sidebar-doc-title">{page.title}</span>
+                            <span className="sidebar-doc-meta">{page.sidebarMeta}</span>
+                          </span>
                         </Button>
                       </li>
                     ))}
@@ -311,7 +310,7 @@ export function Sidebar({
                         <Input
                           autoFocus
                           className="sidebar-input"
-                          placeholder="Document title…"
+                          placeholder="Page title…"
                           value={newDocTitle}
                           onChange={(event) => setNewDocTitle(event.target.value)}
                           onKeyDown={(event) => handleAddDocKeyDown(event, category.id)}

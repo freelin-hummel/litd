@@ -231,7 +231,37 @@ body {
 .sidebar-doc-item svg { flex-shrink: 0; opacity: 0.45; }
 .sidebar-doc-item.active svg { opacity: 0.9; }
 
-.sidebar-doc-title { overflow: hidden; text-overflow: ellipsis; }
+.sidebar-doc-content {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--theme-space-2);
+  width: 100%;
+}
+
+.sidebar-doc-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-doc-meta {
+  flex-shrink: 0;
+  padding: 1px 5px;
+  border: 1px solid color-mix(in srgb, var(--theme-border) 85%, transparent);
+  border-radius: 999px;
+  color: var(--theme-text-muted);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.sidebar-doc-item.active .sidebar-doc-meta {
+  color: inherit;
+  border-color: color-mix(in srgb, currentColor 28%, transparent);
+}
 
 .sidebar-add-btn {
   width: calc(100% - calc(var(--sidebar-item-h-margin) * 2));
