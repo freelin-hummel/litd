@@ -7,16 +7,11 @@ import {
 } from '@blocksuite/sync';
 import { DocCollection, Schema } from '@blocksuite/store';
 
-export type CategoryId =
-  | 'worlds'
-  | 'locations'
-  | 'factions'
-  | 'characters'
-  | 'lore'
-  | 'bestiary';
+/** Category IDs are arbitrary strings; built-in categories use well-known values. */
+export type CategoryId = string;
 
 export interface Category {
-  id: CategoryId;
+  id: string;
   label: string;
   /** Singular label used in "New <X>" button text */
   newLabel: string;
@@ -28,7 +23,7 @@ export interface WorldStore {
   categories: Category[];
 }
 
-const INITIAL_DOCS: Record<CategoryId, { title: string }[]> = {
+const INITIAL_DOCS: Record<string, { title: string }[]> = {
   worlds: [{ title: 'Karrakis Trade Baronies — Campaign Overview' }],
   locations: [
     { title: 'Cradle' },
@@ -61,15 +56,12 @@ export function saveCategories(categories: Category[]): void {
 /** Validate a parsed value is a well-formed Category[]. */
 function isValidCategories(value: unknown): value is Category[] {
   if (!Array.isArray(value)) return false;
-  const validIds = new Set<string>([
-    'worlds', 'locations', 'factions', 'characters', 'lore', 'bestiary',
-  ]);
   return value.every(
     (item) =>
       item !== null &&
       typeof item === 'object' &&
       typeof (item as Record<string, unknown>).id === 'string' &&
-      validIds.has((item as Record<string, unknown>).id as string) &&
+      (item as Record<string, unknown>).id !== '' &&
       typeof (item as Record<string, unknown>).label === 'string' &&
       typeof (item as Record<string, unknown>).newLabel === 'string' &&
       Array.isArray((item as Record<string, unknown>).docIds) &&
@@ -77,6 +69,21 @@ function isValidCategories(value: unknown): value is Category[] {
         (id) => typeof id === 'string',
       ),
   );
+}
+
+/** Derive a reasonable singular form of a category label for the "New <X>" button. */
+function deriveSingular(label: string): string {
+  const t = label.trim();
+  if (t.toLowerCase().endsWith('ies') && t.length > 3) return t.slice(0, -3) + 'y';
+  if (t.toLowerCase().endsWith('es') && t.length > 3) return t.slice(0, -2);
+  if (t.toLowerCase().endsWith('s') && t.length > 2) return t.slice(0, -1);
+  return t;
+}
+
+/** Generate a unique ID for a user-created category. */
+let _catCounter = 0;
+function generateCategoryId(): string {
+  return `cat-${Date.now().toString(36)}-${(++_catCounter).toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
 /** Load the category list from localStorage, or return null if not found. */
@@ -142,7 +149,7 @@ export function initWorldStore(): WorldStore {
 
 export function addDocToCategory(
   store: WorldStore,
-  categoryId: CategoryId,
+  categoryId: string,
   title: string,
 ): string {
   const doc = createDefaultDoc(store.collection, { title });
@@ -157,4 +164,64 @@ export function addDocToCategory(
 export function getDocTitle(collection: DocCollection, docId: string): string {
   const meta = collection.meta.getDocMeta(docId);
   return meta?.title ?? 'Untitled';
+}
+
+/**
+ * Add a new user-defined category. Throws if the name is empty or already
+ * taken by an existing category (case-insensitive).
+ */
+export function addCategory(store: WorldStore, label: string): Category {
+  const trimmed = label.trim();
+  if (!trimmed) throw new Error('Category name cannot be empty.');
+  if (
+    store.categories.some(
+      (c) => c.label.toLowerCase() === trimmed.toLowerCase(),
+    )
+  ) {
+    throw new Error(`A category named "${trimmed}" already exists.`);
+  }
+  const id = generateCategoryId();
+  const newLabel = deriveSingular(trimmed);
+  const category: Category = { id, label: trimmed, newLabel, docIds: [] };
+  store.categories.push(category);
+  saveCategories(store.categories);
+  return category;
+}
+
+/**
+ * Remove a category from the store.
+ * Returns the doc IDs that were in the deleted category so the caller can
+ * clear any active selection if needed.
+ */
+export function removeCategory(store: WorldStore, categoryId: string): string[] {
+  const idx = store.categories.findIndex((c) => c.id === categoryId);
+  if (idx === -1) return [];
+  const [removed] = store.categories.splice(idx, 1);
+  saveCategories(store.categories);
+  return removed.docIds;
+}
+
+/**
+ * Rename an existing category. Throws if the new name is empty or already
+ * taken by another category (case-insensitive).
+ */
+export function renameCategory(
+  store: WorldStore,
+  categoryId: string,
+  newLabel: string,
+): void {
+  const trimmed = newLabel.trim();
+  if (!trimmed) throw new Error('Category name cannot be empty.');
+  const category = store.categories.find((c) => c.id === categoryId);
+  if (!category) return;
+  if (
+    store.categories.some(
+      (c) => c.id !== categoryId && c.label.toLowerCase() === trimmed.toLowerCase(),
+    )
+  ) {
+    throw new Error(`A category named "${trimmed}" already exists.`);
+  }
+  category.label = trimmed;
+  category.newLabel = deriveSingular(trimmed);
+  saveCategories(store.categories);
 }

@@ -7,19 +7,22 @@ import {
   BookOpen,
   ChevronRight,
   FileText,
+  Folder,
   Globe,
   Map,
   MapPin,
+  Pencil,
   Plus,
   Shield,
   Skull,
+  Trash2,
   User,
   Zap,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import type { CategoryId } from '../lib/collection';
 
-export const CATEGORY_ICONS: Record<CategoryId, LucideIcon> = {
+/** Icons for the built-in categories. */
+const BUILTIN_CATEGORY_ICONS: Partial<Record<string, LucideIcon>> = {
   worlds:     Globe,
   locations:  MapPin,
   factions:   Shield,
@@ -28,10 +31,18 @@ export const CATEGORY_ICONS: Record<CategoryId, LucideIcon> = {
   bestiary:   Skull,
 };
 
+/**
+ * Returns the icon for a category ID.
+ * Built-in categories get their dedicated icon; custom categories fall back to Folder.
+ */
+export function getCategoryIcon(categoryId: string): LucideIcon {
+  return BUILTIN_CATEGORY_ICONS[categoryId] ?? Folder;
+}
+
 /** Page-editor mode icon (structured document / text) */
 export const PageModeIcon = AlignLeft;
 
 /** Edgeless-editor mode icon (canvas / map) */
 export const CanvasModeIcon = Map;
 
-export { ChevronRight, FileText, Plus, Zap };
+export { ChevronRight, FileText, Folder, Pencil, Plus, Trash2, Zap };

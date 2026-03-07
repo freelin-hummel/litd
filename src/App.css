@@ -119,6 +119,14 @@ body {
   width: 100%;
   display: flex;
   align-items: center;
+  position: relative;
+}
+
+.sidebar-category-toggle {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
   gap: 7px;
   padding: 6px 10px;
   background: none;
@@ -131,12 +139,105 @@ body {
   letter-spacing: 1.2px;
   cursor: pointer;
   transition: color 0.15s, background 0.15s;
+  border-radius: 0;
+  text-align: left;
 }
-.sidebar-category-header:hover {
+.sidebar-category-toggle:hover {
   color: var(--color-text);
   background: var(--color-hover);
 }
-.sidebar-category-header svg { flex-shrink: 0; }
+.sidebar-category-toggle svg { flex-shrink: 0; }
+
+.sidebar-category-rename-row {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 10px;
+  color: var(--color-muted);
+}
+.sidebar-category-rename-row svg { flex-shrink: 0; }
+
+.sidebar-category-rename-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--color-bg);
+  border: 1px solid var(--color-accent);
+  border-radius: 3px;
+  color: var(--color-text);
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  padding: 2px 5px;
+  outline: none;
+}
+
+/* ── Category action buttons (rename / delete) ────────────────── */
+.sidebar-category-actions {
+  display: none;
+  align-items: center;
+  gap: 1px;
+  padding-right: 6px;
+  flex-shrink: 0;
+}
+.sidebar-category-header:hover .sidebar-category-actions {
+  display: flex;
+}
+
+.sidebar-category-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px;
+  background: none;
+  border: none;
+  color: var(--color-muted);
+  cursor: pointer;
+  border-radius: 3px;
+  transition: color 0.12s, background 0.12s;
+  line-height: 1;
+}
+.sidebar-category-action-btn:hover {
+  color: var(--color-accent);
+  background: var(--color-hover);
+}
+.sidebar-category-action-btn.danger:hover {
+  color: #e05252;
+  background: rgba(224, 82, 82, 0.1);
+}
+
+/* ── New category button / input ──────────────────────────────── */
+.sidebar-new-category-btn {
+  width: calc(100% - 20px);
+  margin: 6px 10px 4px;
+  padding: 5px 10px;
+  background: none;
+  border: 1px dashed var(--color-border);
+  color: var(--color-muted);
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  text-align: left;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: color 0.12s, background 0.12s, border-color 0.12s;
+}
+.sidebar-new-category-btn:hover {
+  color: var(--color-accent);
+  border-color: var(--color-accent-dim);
+  background: var(--color-hover);
+}
+
+.sidebar-new-category-input-row {
+  padding: 4px 10px 6px;
+}
 
 .sidebar-category-label { flex: 1; text-align: left; }
 
