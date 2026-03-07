@@ -1,5 +1,6 @@
 import type { EditorMode } from '../lib/collection';
 import { CanvasModeIcon, DocumentModeIcon } from '../lib/icons';
+import { ToggleGroup, ToggleGroupItem } from '../primitives';
 
 interface EditorToolbarProps {
   docTitle: string;
@@ -13,26 +14,36 @@ export function EditorToolbar({ docTitle, mode, onModeChange }: EditorToolbarPro
       <span className="editor-toolbar-title" title={docTitle}>
         {docTitle}
       </span>
-      <div className="editor-mode-toggle" role="group" aria-label="Editor mode">
-        <button
-          className={`editor-mode-btn ${mode === 'document' ? 'active' : ''}`}
-          onClick={() => onModeChange('document')}
-          aria-pressed={mode === 'document'}
-          title="Document editor — collaborative rich text powered by TipTap"
+      <ToggleGroup
+        className="editor-mode-toggle"
+        type="single"
+        value={mode}
+        onValueChange={(value) => {
+          if (value === 'document' || value === 'canvas') {
+            onModeChange(value);
+          }
+        }}
+        aria-label="Editor mode"
+      >
+        <ToggleGroupItem
+          className="editor-mode-btn"
+          value="document"
+          aria-label="Document mode"
+          title="Collaborative rich text powered by TipTap."
         >
           <DocumentModeIcon size={14} aria-hidden="true" />
           Document
-        </button>
-        <button
-          className={`editor-mode-btn ${mode === 'canvas' ? 'active' : ''}`}
-          onClick={() => onModeChange('canvas')}
-          aria-pressed={mode === 'canvas'}
-          title="Canvas editor — freeform maps and diagrams powered by tldraw"
+        </ToggleGroupItem>
+        <ToggleGroupItem
+          className="editor-mode-btn"
+          value="canvas"
+          aria-label="Canvas mode"
+          title="Freeform maps and diagrams powered by tldraw."
         >
           <CanvasModeIcon size={14} aria-hidden="true" />
           Canvas
-        </button>
-      </div>
+        </ToggleGroupItem>
+      </ToggleGroup>
     </div>
   );
 }

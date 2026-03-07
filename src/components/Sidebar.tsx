@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { KeyboardEvent } from 'react';
 import type { Category, WorldStore } from '../lib/collection';
 import {
   addCategory,
@@ -17,6 +18,20 @@ import {
   Zap,
 } from '../lib/icons';
 import type { ThemeId } from '../themes';
+import {
+  AppAlertDialog,
+  Button,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  IconButton,
+  Input,
+} from '../primitives';
 import { ThemeSwitcher } from './ThemeSwitcher';
 
 interface SidebarProps {
@@ -28,6 +43,11 @@ interface SidebarProps {
   onThemeSwitch: (next: ThemeId) => void;
 }
 
+type SidebarDialogState =
+  | { kind: 'delete'; categoryId: string; label: string; docCount: number }
+  | { kind: 'error'; title: string; description: string }
+  | null;
+
 export function Sidebar({
   store,
   activeDocId,
@@ -37,32 +57,37 @@ export function Sidebar({
   onThemeSwitch,
 }: SidebarProps) {
   const [expanded, setExpanded] = useState<Set<string>>(
-    () => new Set(store.categories.map((c) => c.id)),
+    () => new Set(store.categories.map((category) => category.id)),
   );
-  // Adding a document to an existing category
   const [addingDocTo, setAddingDocTo] = useState<string | null>(null);
   const [newDocTitle, setNewDocTitle] = useState('');
-  // Inline rename of a category
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renamingLabel, setRenamingLabel] = useState('');
-  // Creating a new category
   const [addingCategory, setAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [dialogState, setDialogState] = useState<SidebarDialogState>(null);
 
-  function toggleCategory(id: string) {
+  function toggleCategory(id: string, open: boolean) {
     setExpanded((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (open) next.add(id);
+      else next.delete(id);
       return next;
     });
   }
 
-  // ── Document creation ──────────────────────────────────────────
+  function openErrorDialog(title: string, error: unknown) {
+    setDialogState({
+      kind: 'error',
+      title,
+      description: error instanceof Error ? error.message : String(error),
+    });
+  }
 
   function startAddingDoc(categoryId: string) {
     setAddingDocTo(categoryId);
     setNewDocTitle('');
+    setRenamingId(null);
   }
 
   function commitAddDoc(categoryId: string) {
@@ -76,16 +101,18 @@ export function Sidebar({
     setNewDocTitle('');
   }
 
-  function handleAddDocKeyDown(e: React.KeyboardEvent, categoryId: string) {
-    if (e.key === 'Enter') commitAddDoc(categoryId);
-    if (e.key === 'Escape') { setAddingDocTo(null); setNewDocTitle(''); }
+  function handleAddDocKeyDown(event: KeyboardEvent<HTMLInputElement>, categoryId: string) {
+    if (event.key === 'Enter') commitAddDoc(categoryId);
+    if (event.key === 'Escape') {
+      setAddingDocTo(null);
+      setNewDocTitle('');
+    }
   }
-
-  // ── Category rename ────────────────────────────────────────────
 
   function startRenaming(categoryId: string, currentLabel: string) {
     setRenamingId(categoryId);
     setRenamingLabel(currentLabel);
+    setAddingDocTo(null);
   }
 
   function commitRename(categoryId: string) {
@@ -94,12 +121,10 @@ export function Sidebar({
       try {
         renameCategory(store, categoryId, trimmed);
         onStoreChange();
-      } catch (err) {
-        // Close the input first so the alert doesn't leave a dangling input behind,
-        // then notify the user. The original label is preserved.
+      } catch (error) {
         setRenamingId(null);
         setRenamingLabel('');
-        alert(err instanceof Error ? err.message : String(err));
+        openErrorDialog('Unable to rename category', error);
         return;
       }
     }
@@ -107,34 +132,42 @@ export function Sidebar({
     setRenamingLabel('');
   }
 
-  function handleRenameKeyDown(e: React.KeyboardEvent, categoryId: string) {
-    if (e.key === 'Enter') commitRename(categoryId);
-    if (e.key === 'Escape') { setRenamingId(null); setRenamingLabel(''); }
+  function handleRenameKeyDown(event: KeyboardEvent<HTMLInputElement>, categoryId: string) {
+    if (event.key === 'Enter') commitRename(categoryId);
+    if (event.key === 'Escape') {
+      setRenamingId(null);
+      setRenamingLabel('');
+    }
   }
 
-  // ── Category delete ────────────────────────────────────────────
-
-  function handleDeleteCategory(categoryId: string) {
-    const category = store.categories.find((c) => c.id === categoryId);
+  function requestDeleteCategory(categoryId: string) {
+    const category = store.categories.find((entry) => entry.id === categoryId);
     if (!category) return;
-    if (category.docIds.length > 0) {
-      const ok = window.confirm(
-        `Delete "${category.label}"?\n\n` +
-        `It contains ${category.docIds.length} document(s). ` +
-        `The documents will be removed from the sidebar but preserved in storage.`,
-      );
-      if (!ok) return;
-    }
-    removeCategory(store, categoryId);
-    setExpanded((prev) => { const next = new Set(prev); next.delete(categoryId); return next; });
+
+    setDialogState({
+      kind: 'delete',
+      categoryId,
+      label: category.label,
+      docCount: category.docIds.length,
+    });
+  }
+
+  function confirmDeleteCategory() {
+    if (!dialogState || dialogState.kind !== 'delete') return;
+    removeCategory(store, dialogState.categoryId);
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      next.delete(dialogState.categoryId);
+      return next;
+    });
+    setDialogState(null);
     onStoreChange();
   }
-
-  // ── New category ───────────────────────────────────────────────
 
   function startAddingCategory() {
     setAddingCategory(true);
     setNewCategoryName('');
+    setRenamingId(null);
   }
 
   function commitAddCategory() {
@@ -144,11 +177,10 @@ export function Sidebar({
         const category = addCategory(store, name);
         setExpanded((prev) => new Set([...prev, category.id]));
         onStoreChange();
-      } catch (err) {
-        // Close the input first so the alert doesn't leave a dangling input behind.
+      } catch (error) {
         setAddingCategory(false);
         setNewCategoryName('');
-        alert(err instanceof Error ? err.message : String(err));
+        openErrorDialog('Unable to create category', error);
         return;
       }
     }
@@ -156,147 +188,199 @@ export function Sidebar({
     setNewCategoryName('');
   }
 
-  function handleNewCategoryKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Enter') commitAddCategory();
-    if (e.key === 'Escape') { setAddingCategory(false); setNewCategoryName(''); }
+  function handleNewCategoryKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === 'Enter') commitAddCategory();
+    if (event.key === 'Escape') {
+      setAddingCategory(false);
+      setNewCategoryName('');
+    }
   }
 
+  const activeDialogTitle =
+    dialogState?.kind === 'delete' ? `Delete “${dialogState.label}”?` : dialogState?.title ?? '';
+  const activeDialogDescription =
+    dialogState?.kind === 'delete'
+      ? dialogState.docCount > 0
+        ? `This category contains ${dialogState.docCount} document(s). The sidebar grouping will be removed, but the underlying documents remain stored locally.`
+        : 'This category will be removed from the sidebar.'
+      : dialogState?.description ?? '';
+
   return (
-    <aside className="sidebar">
-      <div className="sidebar-header">
-        <span className="sidebar-logo" aria-hidden="true">
-          <Zap size={18} />
-        </span>
-        <span className="sidebar-title">LITD</span>
-        <span className="sidebar-subtitle">Worldbuilder</span>
-      </div>
-      <nav className="sidebar-nav">
-        {store.categories.map((category: Category) => {
-          const CategoryIcon = getCategoryIcon(category.id);
-          const isOpen = expanded.has(category.id);
-          const isRenaming = renamingId === category.id;
-          return (
-            <div key={category.id} className="sidebar-category">
-              <div className="sidebar-category-header">
-                {isRenaming ? (
-                  <div className="sidebar-category-rename-row">
-                    <CategoryIcon size={13} aria-hidden="true" />
-                    <input
-                      autoFocus
-                      className="sidebar-category-rename-input"
-                      value={renamingLabel}
-                      onChange={(e) => setRenamingLabel(e.target.value)}
-                      onKeyDown={(e) => handleRenameKeyDown(e, category.id)}
-                      onBlur={() => commitRename(category.id)}
-                      aria-label="Rename category"
-                    />
-                  </div>
-                ) : (
-                  <button
-                    className="sidebar-category-toggle"
-                    onClick={() => toggleCategory(category.id)}
-                    onDoubleClick={() => startRenaming(category.id, category.label)}
-                    aria-expanded={isOpen}
-                  >
-                    <CategoryIcon size={13} aria-hidden="true" />
-                    <span className="sidebar-category-label">{category.label}</span>
-                    <ChevronRight
-                      size={12}
-                      className={`sidebar-category-chevron ${isOpen ? 'open' : ''}`}
-                      aria-hidden="true"
-                    />
-                  </button>
-                )}
-                {!isRenaming && (
-                  <div className="sidebar-category-actions">
-                    <button
-                      className="sidebar-category-action-btn"
-                      onClick={() => startRenaming(category.id, category.label)}
-                      title="Rename category"
-                      aria-label={`Rename ${category.label}`}
-                    >
-                      <Pencil size={11} aria-hidden="true" />
-                    </button>
-                    <button
-                      className="sidebar-category-action-btn danger"
-                      onClick={() => handleDeleteCategory(category.id)}
-                      title="Delete category"
-                      aria-label={`Delete ${category.label}`}
-                    >
-                      <Trash2 size={11} aria-hidden="true" />
-                    </button>
-                  </div>
-                )}
-              </div>
-              {isOpen && (
-                <ul className="sidebar-doc-list">
-                  {category.docIds.map((docId) => (
-                    <li key={docId}>
-                      <button
-                        className={`sidebar-doc-item ${activeDocId === docId ? 'active' : ''}`}
-                        onClick={() => onSelectDoc(docId)}
-                         title={getDocTitle(store, docId)}
-                      >
-                        <FileText size={11} aria-hidden="true" />
-                        <span className="sidebar-doc-title">
-                           {getDocTitle(store, docId)}
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                  {addingDocTo === category.id ? (
-                    <li className="sidebar-new-doc-input">
-                      <input
+    <>
+      <aside className="sidebar">
+        <div className="sidebar-header">
+          <span className="sidebar-logo" aria-hidden="true">
+            <Zap size={18} />
+          </span>
+          <span className="sidebar-title">LITD</span>
+          <span className="sidebar-subtitle">Worldbuilder</span>
+        </div>
+        <nav className="sidebar-nav">
+          {store.categories.map((category: Category) => {
+            const CategoryIcon = getCategoryIcon(category.id);
+            const isOpen = expanded.has(category.id);
+            const isRenaming = renamingId === category.id;
+
+            return (
+              <Collapsible
+                key={category.id}
+                className="sidebar-category"
+                open={isOpen}
+                onOpenChange={(open) => toggleCategory(category.id, open)}
+              >
+                <div className="sidebar-category-header">
+                  {isRenaming ? (
+                    <div className="sidebar-category-rename-row">
+                      <CategoryIcon size={13} aria-hidden="true" />
+                      <Input
                         autoFocus
-                        className="sidebar-input"
-                        placeholder="Document title…"
-                        value={newDocTitle}
-                        onChange={(e) => setNewDocTitle(e.target.value)}
-                        onKeyDown={(e) => handleAddDocKeyDown(e, category.id)}
-                        onBlur={() => commitAddDoc(category.id)}
+                        className="sidebar-category-rename-input"
+                        value={renamingLabel}
+                        onChange={(event) => setRenamingLabel(event.target.value)}
+                        onKeyDown={(event) => handleRenameKeyDown(event, category.id)}
+                        onBlur={() => commitRename(category.id)}
+                        aria-label="Rename category"
                       />
-                    </li>
+                    </div>
                   ) : (
-                    <li>
-                      <button
-                        className="sidebar-add-btn"
-                        onClick={() => startAddingDoc(category.id)}
-                        title={`Add to ${category.label}`}
+                    <CollapsibleTrigger asChild>
+                      <Button
+                        className="sidebar-category-toggle"
+                        variant="ghost"
+                        size="sm"
+                        onDoubleClick={() => startRenaming(category.id, category.label)}
+                        aria-expanded={isOpen}
                       >
-                        <Plus size={11} aria-hidden="true" />
-                        New {category.newLabel}
-                      </button>
-                    </li>
+                        <CategoryIcon size={13} aria-hidden="true" />
+                        <span className="sidebar-category-label">{category.label}</span>
+                        <ChevronRight
+                          size={12}
+                          className={`sidebar-category-chevron ${isOpen ? 'open' : ''}`}
+                          aria-hidden="true"
+                        />
+                      </Button>
+                    </CollapsibleTrigger>
                   )}
-                </ul>
-              )}
+                  {!isRenaming && (
+                    <div className="sidebar-category-actions">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <IconButton
+                            className="sidebar-category-action-btn"
+                            variant="ghost"
+                            size="sm"
+                            label={`Category actions for ${category.label}`}
+                          >
+                            <Pencil size={11} aria-hidden="true" />
+                          </IconButton>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onSelect={() => startRenaming(category.id, category.label)}>
+                            <Pencil size={12} aria-hidden="true" />
+                            Rename category
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem danger onSelect={() => requestDeleteCategory(category.id)}>
+                            <Trash2 size={12} aria-hidden="true" />
+                            Delete category
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  )}
+                </div>
+                <CollapsibleContent>
+                  <ul className="sidebar-doc-list">
+                    {category.docIds.map((docId) => (
+                      <li key={docId}>
+                        <Button
+                          className={`sidebar-doc-item ${activeDocId === docId ? 'active' : ''}`}
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onSelectDoc(docId)}
+                          title={getDocTitle(store, docId)}
+                        >
+                          <FileText size={11} aria-hidden="true" />
+                          <span className="sidebar-doc-title">{getDocTitle(store, docId)}</span>
+                        </Button>
+                      </li>
+                    ))}
+                    {addingDocTo === category.id ? (
+                      <li className="sidebar-new-doc-input">
+                        <Input
+                          autoFocus
+                          className="sidebar-input"
+                          placeholder="Document title…"
+                          value={newDocTitle}
+                          onChange={(event) => setNewDocTitle(event.target.value)}
+                          onKeyDown={(event) => handleAddDocKeyDown(event, category.id)}
+                          onBlur={() => commitAddDoc(category.id)}
+                        />
+                      </li>
+                    ) : (
+                      <li>
+                        <Button
+                          className="sidebar-add-btn"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => startAddingDoc(category.id)}
+                          title={`Add to ${category.label}`}
+                        >
+                          <Plus size={11} aria-hidden="true" />
+                          New {category.newLabel}
+                        </Button>
+                      </li>
+                    )}
+                  </ul>
+                </CollapsibleContent>
+              </Collapsible>
+            );
+          })}
+          {addingCategory ? (
+            <div className="sidebar-new-category-input-row">
+              <Input
+                autoFocus
+                className="sidebar-input"
+                placeholder="Category name…"
+                value={newCategoryName}
+                onChange={(event) => setNewCategoryName(event.target.value)}
+                onKeyDown={handleNewCategoryKeyDown}
+                onBlur={commitAddCategory}
+              />
             </div>
-          );
-        })}
-        {addingCategory ? (
-          <div className="sidebar-new-category-input-row">
-            <input
-              autoFocus
-              className="sidebar-input"
-              placeholder="Category name…"
-              value={newCategoryName}
-              onChange={(e) => setNewCategoryName(e.target.value)}
-              onKeyDown={handleNewCategoryKeyDown}
-              onBlur={commitAddCategory}
-            />
-          </div>
-        ) : (
-          <button
-            className="sidebar-new-category-btn"
-            onClick={startAddingCategory}
-            title="Add a new category"
-          >
-            <Plus size={11} aria-hidden="true" />
-            New Category
-          </button>
-        )}
-      </nav>
-      <ThemeSwitcher currentTheme={currentTheme} onSwitch={onThemeSwitch} />
-    </aside>
+          ) : (
+            <Button
+              className="sidebar-new-category-btn"
+              variant="outline"
+              size="sm"
+              onClick={startAddingCategory}
+              title="Add a new category"
+            >
+              <Plus size={11} aria-hidden="true" />
+              New Category
+            </Button>
+          )}
+        </nav>
+        <ThemeSwitcher currentTheme={currentTheme} onSwitch={onThemeSwitch} />
+      </aside>
+      <AppAlertDialog
+        open={dialogState !== null}
+        onOpenChange={(open) => {
+          if (!open) setDialogState(null);
+        }}
+        title={activeDialogTitle}
+        description={activeDialogDescription}
+        actionLabel={dialogState?.kind === 'delete' ? 'Delete category' : 'OK'}
+        cancelLabel={dialogState?.kind === 'delete' ? 'Keep category' : 'Dismiss'}
+        onAction={() => {
+          if (dialogState?.kind === 'delete') {
+            confirmDeleteCategory();
+            return;
+          }
+          setDialogState(null);
+        }}
+        tone={dialogState?.kind === 'delete' ? 'danger' : 'default'}
+      />
+    </>
   );
 }

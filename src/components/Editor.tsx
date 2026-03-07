@@ -2,14 +2,23 @@ import Collaboration from '@tiptap/extension-collaboration';
 import Placeholder from '@tiptap/extension-placeholder';
 import StarterKit from '@tiptap/starter-kit';
 import { EditorContent, useEditor } from '@tiptap/react';
-import { useEffect, useMemo } from 'react';
-import { Tldraw } from 'tldraw';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { DefaultQuickActions, Tldraw } from 'tldraw';
 import { Zap } from 'lucide-react';
+import type { ThemeId } from '../themes';
+import { getThemeMeta } from '../themes';
 import { getCollaborationDoc, releaseCollaborationDoc } from '../lib/collection';
 import type { WorldDoc } from '../lib/collection';
 
 interface EditorProps {
   doc: WorldDoc | null;
+  theme: ThemeId;
+}
+
+interface CanvasMountedEditor {
+  user: {
+    updateUserPreferences: (preferences: { colorScheme: 'light' | 'dark' }) => void;
+  };
 }
 
 function DocumentEditor({ doc }: { doc: WorldDoc }) {
@@ -62,15 +71,41 @@ function DocumentEditor({ doc }: { doc: WorldDoc }) {
   );
 }
 
-function CanvasEditor({ doc }: { doc: WorldDoc }) {
+const TLDRAW_COMPONENTS = {
+  MainMenu: null,
+  QuickActions: DefaultQuickActions,
+} as const;
+
+function CanvasEditor({ doc, theme }: { doc: WorldDoc; theme: ThemeId }) {
+  const colorScheme = getThemeMeta(theme).appearance;
+  const editorRef = useRef<CanvasMountedEditor | null>(null);
+
+  const syncColorScheme = useCallback((editor: CanvasMountedEditor) => {
+    editor.user.updateUserPreferences({ colorScheme });
+  }, [colorScheme]);
+
+  useEffect(() => {
+    if (editorRef.current) {
+      syncColorScheme(editorRef.current);
+    }
+  }, [syncColorScheme]);
+
   return (
     <div className="editor-canvas-shell">
-      <Tldraw persistenceKey={`litd:tldraw:${doc.id}`} />
+      <div className="editor-canvas-badge">Canvas mode</div>
+      <Tldraw
+        persistenceKey={`litd:tldraw:${doc.id}`}
+        components={TLDRAW_COMPONENTS}
+        onMount={(editor) => {
+          editorRef.current = editor as CanvasMountedEditor;
+          syncColorScheme(editor as CanvasMountedEditor);
+        }}
+      />
     </div>
   );
 }
 
-export function Editor({ doc }: EditorProps) {
+export function Editor({ doc, theme }: EditorProps) {
   if (!doc) {
     return (
       <div className="editor-empty">
@@ -87,7 +122,7 @@ export function Editor({ doc }: EditorProps) {
 
   return (
     <div className="editor-host">
-      {doc.mode === 'canvas' ? <CanvasEditor doc={doc} /> : <DocumentEditor doc={doc} />}
+      {doc.mode === 'canvas' ? <CanvasEditor doc={doc} theme={theme} /> : <DocumentEditor doc={doc} />}
     </div>
   );
 }

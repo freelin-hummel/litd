@@ -1,54 +1,97 @@
 /*
- * Theme token definitions.
- * Each [data-theme="..."] block overrides the same set of custom properties.
- * Add a new block to register a new theme — no JS changes required.
+ * Theme contract:
+ * - theme flavor tokens live inside each [data-theme="..."] block
+ * - semantic UI tokens are defined once in :root and are consumed by the app shell,
+ *   TipTap surfaces, shared primitives, and tldraw overrides
  */
 
+:root {
+  --theme-app-background: var(--theme-flavor-background);
+  --theme-panel: var(--theme-flavor-panel);
+  --theme-surface-elevated: var(--theme-flavor-surface-elevated);
+  --theme-border: var(--theme-flavor-border);
+  --theme-text: var(--theme-flavor-text);
+  --theme-text-muted: var(--theme-flavor-text-muted);
+  --theme-accent: var(--theme-flavor-accent);
+  --theme-accent-muted: var(--theme-flavor-accent-muted);
+  --theme-accent-contrast: var(--theme-flavor-accent-contrast);
+  --theme-danger: var(--theme-flavor-danger);
+  --theme-focus-ring: var(--theme-flavor-focus-ring);
+  --theme-surface-hover: var(--theme-flavor-surface-hover);
+  --theme-surface-active: var(--theme-flavor-surface-active);
+  --theme-active-text: var(--theme-flavor-active-text);
+  --theme-overlay: var(--theme-flavor-overlay);
+  --theme-shadow-elevated: var(--theme-flavor-shadow-elevated);
+  --theme-shadow-overlay: var(--theme-flavor-shadow-overlay);
+  --theme-radius: 12px;
+  --theme-radius-sm: 8px;
+
+  --font-brand: var(--theme-flavor-font-brand);
+  --font-ui: var(--theme-flavor-font-ui);
+  --logo-size: var(--theme-flavor-logo-size);
+  --brand-letter-spacing: var(--theme-flavor-brand-letter-spacing);
+  --sidebar-item-h-margin: var(--theme-flavor-sidebar-item-h-margin);
+}
+
+[data-color-scheme='dark'] {
+  color-scheme: dark;
+}
+
+[data-color-scheme='light'] {
+  color-scheme: light;
+}
+
 /* ── Dark Fantasy ───────────────────────────────────────────────── */
-[data-theme="dark-fantasy"] {
-  --color-bg:           #0d0d14;
-  --color-surface:      #13131f;
-  --color-border:       #2a2a40;
-  --color-accent:       #c9a227;
-  --color-accent-dim:   #8b5c1a;
-  --color-accent-2:     #8b5cf6;
-  --color-text:         #e2e2ef;
-  --color-muted:        #7c7c9e;
-  --color-hover:        #1e1e30;
-  --color-active:       #252538;
-  --color-active-text:  #c9a227;
+[data-theme='dark-fantasy'] {
+  --theme-flavor-background: #0d0d14;
+  --theme-flavor-panel: #13131f;
+  --theme-flavor-surface-elevated: #181828;
+  --theme-flavor-border: #2a2a40;
+  --theme-flavor-text: #e2e2ef;
+  --theme-flavor-text-muted: #7c7c9e;
+  --theme-flavor-accent: #c9a227;
+  --theme-flavor-accent-muted: #8b5c1a;
+  --theme-flavor-accent-contrast: #140f03;
+  --theme-flavor-danger: #e07070;
+  --theme-flavor-focus-ring: #c9a227;
+  --theme-flavor-surface-hover: #1e1e30;
+  --theme-flavor-surface-active: #252538;
+  --theme-flavor-active-text: #c9a227;
+  --theme-flavor-overlay: rgba(7, 7, 12, 0.72);
+  --theme-flavor-shadow-elevated: 0 24px 60px rgba(0, 0, 0, 0.24);
+  --theme-flavor-shadow-overlay: 0 22px 48px rgba(0, 0, 0, 0.32);
 
-  --font-brand:         'Palatino Linotype', 'Book Antiqua', Georgia, serif;
-  --font-ui:            'Inter', 'Segoe UI', system-ui, sans-serif;
-
-  --logo-size:              20px;
-  --brand-letter-spacing:   1px;
-  --sidebar-item-h-margin:  6px;
+  --theme-flavor-font-brand: 'Palatino Linotype', 'Book Antiqua', Georgia, serif;
+  --theme-flavor-font-ui: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --theme-flavor-logo-size: 20px;
+  --theme-flavor-brand-letter-spacing: 1px;
+  --theme-flavor-sidebar-item-h-margin: 6px;
 }
 
 /* ── LANCER ──────────────────────────────────────────────────────── */
-/*
- * LANCER is a sci-fi mecha TTRPG with a terminal/mil-spec aesthetic:
- * dark blue-grays, orange-amber primary accent, cyan secondary.
- */
-[data-theme="lancer"] {
-  --color-bg:           #080c10;
-  --color-surface:      #0b1016;
-  --color-border:       #162230;
-  --color-accent:       #d97706;   /* amber-600 — LANCER orange */
-  --color-accent-dim:   #92400e;
-  --color-accent-2:     #22d3ee;   /* cyan-400 */
-  --color-text:         #c5d8e8;   /* pale blue-white terminal text */
-  --color-muted:        #3d5a73;
-  --color-hover:        #0e1822;
-  --color-active:       #122030;
-  --color-active-text:  #f59e0b;   /* amber-400, slightly brighter when active */
+[data-theme='lancer'] {
+  --theme-flavor-background: #080c10;
+  --theme-flavor-panel: #0b1016;
+  --theme-flavor-surface-elevated: #101823;
+  --theme-flavor-border: #162230;
+  --theme-flavor-text: #c5d8e8;
+  --theme-flavor-text-muted: #3d5a73;
+  --theme-flavor-accent: #d97706;
+  --theme-flavor-accent-muted: #92400e;
+  --theme-flavor-accent-contrast: #090d11;
+  --theme-flavor-danger: #ef4444;
+  --theme-flavor-focus-ring: #22d3ee;
+  --theme-flavor-surface-hover: #0e1822;
+  --theme-flavor-surface-active: #122030;
+  --theme-flavor-active-text: #f59e0b;
+  --theme-flavor-overlay: rgba(3, 8, 13, 0.76);
+  --theme-flavor-shadow-elevated: 0 24px 60px rgba(0, 0, 0, 0.22);
+  --theme-flavor-shadow-overlay: 0 24px 54px rgba(0, 0, 0, 0.36);
 
-  --font-brand:         'Share Tech Mono', 'JetBrains Mono', 'Fira Code',
-                        'Courier New', monospace;
-  --font-ui:            'Share Tech', 'Inter', 'Segoe UI', system-ui, sans-serif;
-
-  --logo-size:              18px;
-  --brand-letter-spacing:   2.5px;
-  --sidebar-item-h-margin:  6px;
+  --theme-flavor-font-brand: 'Share Tech Mono', 'JetBrains Mono', 'Fira Code',
+    'Courier New', monospace;
+  --theme-flavor-font-ui: 'Share Tech', 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --theme-flavor-logo-size: 18px;
+  --theme-flavor-brand-letter-spacing: 2.5px;
+  --theme-flavor-sidebar-item-h-margin: 6px;
 }
