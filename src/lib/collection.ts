@@ -8,8 +8,7 @@ export interface Category {
   label: string;
   /** Singular label used in "New <X>" button text */
   newLabel: string;
-  /** Stored page IDs; legacy name kept for existing localStorage data. */
-  docIds: string[];
+  pageIds: string[];
 }
 
 /** App-level metadata store; editor implementations own page content separately. */
@@ -49,7 +48,7 @@ function generateDocId(): string {
   return `doc-${crypto.randomUUID()}`;
 }
 
-/** Persist the category list (docIds only) to localStorage. */
+/** Persist the category list (pageIds only) to localStorage. */
 export function saveCategories(categories: Category[]): void {
   try {
     localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(categories));
@@ -61,27 +60,44 @@ export function saveCategories(categories: Category[]): void {
 function savePages(pages: StoredPages): void {
   try {
     localStorage.setItem(PAGES_STORAGE_KEY, JSON.stringify(pages));
+    localStorage.removeItem(LEGACY_DOCS_STORAGE_KEY);
   } catch {
     // localStorage may be unavailable (e.g. private browsing quota exceeded)
   }
 }
 
-/** Validate a parsed value is a well-formed Category[]. */
-function isValidCategories(value: unknown): value is Category[] {
-  if (!Array.isArray(value)) return false;
-  return value.every(
-    (item) =>
-      item !== null &&
-      typeof item === 'object' &&
-      typeof (item as Record<string, unknown>).id === 'string' &&
-      (item as Record<string, unknown>).id !== '' &&
-      typeof (item as Record<string, unknown>).label === 'string' &&
-      typeof (item as Record<string, unknown>).newLabel === 'string' &&
-      Array.isArray((item as Record<string, unknown>).docIds) &&
-      ((item as Record<string, unknown>).docIds as unknown[]).every(
-        (id) => typeof id === 'string',
-      ),
-  );
+function normalizeCategories(value: unknown): Category[] | null {
+  if (!Array.isArray(value)) return null;
+  const categories: Category[] = [];
+
+  for (const item of value) {
+    if (item === null || typeof item !== 'object') return null;
+    const record = item as Record<string, unknown>;
+    const legacyDocIds = Array.isArray(record.docIds) ? record.docIds : null;
+    // If both fields exist, prefer the new pageIds shape and treat docIds as a
+    // legacy fallback only.
+    const pageIds = Array.isArray(record.pageIds) ? record.pageIds : legacyDocIds;
+
+    if (
+      typeof record.id !== 'string' ||
+      record.id === '' ||
+      typeof record.label !== 'string' ||
+      typeof record.newLabel !== 'string' ||
+      pageIds === null ||
+      !pageIds.every((id) => typeof id === 'string')
+    ) {
+      return null;
+    }
+
+    categories.push({
+      id: record.id,
+      label: record.label,
+      newLabel: record.newLabel,
+      pageIds,
+    });
+  }
+
+  return categories;
 }
 
 function isEditorMode(value: unknown): value is EditorMode {
@@ -125,7 +141,7 @@ function loadCategories(): Category[] | null {
     const raw = localStorage.getItem(CATEGORIES_STORAGE_KEY);
     if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
-    return isValidCategories(parsed) ? parsed : null;
+    return normalizeCategories(parsed);
   } catch {
     return null;
   }
@@ -145,12 +161,12 @@ function loadPages(): StoredPages | null {
 
 function createSeedStore(): WorldStore {
   const categories: Category[] = [
-    { id: 'worlds', label: 'Worlds', newLabel: 'World', docIds: [] },
-    { id: 'locations', label: 'Locations', newLabel: 'Location', docIds: [] },
-    { id: 'factions', label: 'Factions', newLabel: 'Faction', docIds: [] },
-    { id: 'characters', label: 'Characters', newLabel: 'Character', docIds: [] },
-    { id: 'lore', label: 'Lore & History', newLabel: 'Lore Entry', docIds: [] },
-    { id: 'bestiary', label: 'Bestiary', newLabel: 'Entry', docIds: [] },
+    { id: 'worlds', label: 'Worlds', newLabel: 'World', pageIds: [] },
+    { id: 'locations', label: 'Locations', newLabel: 'Location', pageIds: [] },
+    { id: 'factions', label: 'Factions', newLabel: 'Faction', pageIds: [] },
+    { id: 'characters', label: 'Characters', newLabel: 'Character', pageIds: [] },
+    { id: 'lore', label: 'Lore & History', newLabel: 'Lore Entry', pageIds: [] },
+    { id: 'bestiary', label: 'Bestiary', newLabel: 'Entry', pageIds: [] },
   ];
 
   const pages: StoredPages = {};
@@ -164,7 +180,7 @@ function createSeedStore(): WorldStore {
         title: def.title,
         mode: def.mode ?? DEFAULT_DOC_MODE,
       };
-      category.docIds.push(id);
+      category.pageIds.push(id);
     }
   }
 
@@ -174,11 +190,11 @@ function createSeedStore(): WorldStore {
 function reconcileStore(categories: Category[], pages: StoredPages): WorldStore {
   const reconciledCategories = categories.map((category) => ({
     ...category,
-    docIds: category.docIds.filter((docId) => {
-      if (pages[docId]) return true;
-      console.warn(`Recovered missing document metadata for "${docId}" from saved categories.`);
-      pages[docId] = {
-        id: docId,
+    pageIds: category.pageIds.filter((pageId) => {
+      if (pages[pageId]) return true;
+      console.warn(`Recovered missing document metadata for "${pageId}" from saved categories.`);
+      pages[pageId] = {
+        id: pageId,
         title: 'Untitled',
         mode: DEFAULT_DOC_MODE,
       };
@@ -220,7 +236,7 @@ export function addPageToCategory(
 
   const category = store.categories.find((c) => c.id === categoryId);
   if (category) {
-    category.docIds.push(id);
+    category.pageIds.push(id);
   }
 
   savePages(store.pages);
@@ -259,7 +275,7 @@ export function addCategory(store: WorldStore, label: string): Category {
   }
   const id = generateCategoryId();
   const newLabel = deriveSingular(trimmed);
-  const category: Category = { id, label: trimmed, newLabel, docIds: [] };
+  const category: Category = { id, label: trimmed, newLabel, pageIds: [] };
   store.categories.push(category);
   saveCategories(store.categories);
   return category;
@@ -267,7 +283,7 @@ export function addCategory(store: WorldStore, label: string): Category {
 
 /**
  * Remove a category from the store.
- * Returns the doc IDs that were in the deleted category so the caller can
+ * Returns the page IDs that were in the deleted category so the caller can
  * clear any active selection if needed.
  */
 export function removeCategory(store: WorldStore, categoryId: string): string[] {
@@ -275,7 +291,7 @@ export function removeCategory(store: WorldStore, categoryId: string): string[] 
   if (idx === -1) return [];
   const [removed] = store.categories.splice(idx, 1);
   saveCategories(store.categories);
-  return removed.docIds;
+  return removed.pageIds;
 }
 
 /**

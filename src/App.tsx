@@ -19,7 +19,7 @@ const DEFAULT_DOC_MODE: EditorMode = 'document';
 function App() {
   const [, forceUpdate] = useState(0);
   const [activePageId, setActivePageId] = useState<string | null>(
-    store.categories[0]?.docIds[0] ?? null,
+    store.categories[0]?.pageIds[0] ?? null,
   );
   const [theme, setTheme] = useState<ThemeId>(DEFAULT_THEME);
   // Keep a ref so the storeChange callback can always read the latest value.
@@ -43,9 +43,9 @@ function App() {
   const handleStoreChange = useCallback(() => {
     // If the previously active doc has been removed from all categories, clear it
     // and fall back to the first available doc (first category, first entry).
-    const allDocIds = new Set(store.categories.flatMap((c) => c.docIds));
-    if (activePageIdRef.current !== null && !allDocIds.has(activePageIdRef.current)) {
-      setActivePageId(store.categories.flatMap((c) => c.docIds)[0] ?? null);
+    const allPageIds = new Set(store.categories.flatMap((c) => c.pageIds));
+    if (activePageIdRef.current !== null && !allPageIds.has(activePageIdRef.current)) {
+      setActivePageId(store.categories.flatMap((c) => c.pageIds)[0] ?? null);
     }
     forceUpdate((n) => n + 1);
   }, []);

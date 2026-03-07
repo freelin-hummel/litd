@@ -10,7 +10,7 @@ export function getTipTapDocument(pageId: string): Y.Doc {
 
   const yDoc = new Y.Doc();
   yDocCache.set(pageId, yDoc);
-  yPersistenceCache.set(pageId, new IndexeddbPersistence(`litd:page-document:${pageId}`, yDoc));
+  yPersistenceCache.set(pageId, new IndexeddbPersistence(`litd:tiptap:${pageId}`, yDoc));
   return yDoc;
 }
 

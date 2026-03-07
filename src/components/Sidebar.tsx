@@ -44,7 +44,7 @@ interface SidebarProps {
 }
 
 type SidebarDialogState =
-  | { kind: 'delete'; categoryId: string; label: string; docCount: number }
+  | { kind: 'delete'; categoryId: string; label: string; pageCount: number }
   | { kind: 'error'; title: string; description: string }
   | null;
 
@@ -144,12 +144,12 @@ export function Sidebar({
     const category = store.categories.find((entry) => entry.id === categoryId);
     if (!category) return;
 
-    setDialogState({
-      kind: 'delete',
-      categoryId,
-      label: category.label,
-      docCount: category.docIds.length,
-    });
+      setDialogState({
+        kind: 'delete',
+        categoryId,
+        label: category.label,
+        pageCount: category.pageIds.length,
+      });
   }
 
   function confirmDeleteCategory() {
@@ -201,8 +201,8 @@ export function Sidebar({
     dialogState?.kind === 'delete' ? `Delete “${dialogState.label}”?` : dialogState?.title ?? '';
   const activeDialogDescription =
     dialogState?.kind === 'delete'
-      ? dialogState.docCount > 0
-        ? `This category contains ${dialogState.docCount} document(s). The sidebar grouping will be removed, but the underlying documents remain stored locally.`
+      ? dialogState.pageCount > 0
+        ? `This category contains ${dialogState.pageCount} document(s). The sidebar grouping will be removed, but the underlying documents remain stored locally.`
         : 'This category will be removed from the sidebar.'
       : dialogState?.description ?? '';
 
@@ -292,17 +292,17 @@ export function Sidebar({
                 </div>
                 <CollapsibleContent>
                   <ul className="sidebar-doc-list">
-                    {category.docIds.map((docId) => (
-                      <li key={docId}>
+                    {category.pageIds.map((pageId) => (
+                      <li key={pageId}>
                         <Button
-                          className={`sidebar-doc-item ${activePageId === docId ? 'active' : ''}`}
+                          className={`sidebar-doc-item ${activePageId === pageId ? 'active' : ''}`}
                           variant="ghost"
                           size="sm"
-                          onClick={() => onSelectPage(docId)}
-                          title={getPageTitle(store, docId)}
+                          onClick={() => onSelectPage(pageId)}
+                          title={getPageTitle(store, pageId)}
                         >
                           <FileText size={11} aria-hidden="true" />
-                          <span className="sidebar-doc-title">{getPageTitle(store, docId)}</span>
+                          <span className="sidebar-doc-title">{getPageTitle(store, pageId)}</span>
                         </Button>
                       </li>
                     ))}
