@@ -167,6 +167,7 @@ export function Sidebar({
   function startAddingCategory() {
     setAddingCategory(true);
     setNewCategoryName('');
+    setAddingDocTo(null);
     setRenamingId(null);
   }
 

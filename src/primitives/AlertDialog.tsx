@@ -1,6 +1,6 @@
 import * as RadixAlertDialog from '@radix-ui/react-alert-dialog';
 
-interface AppAlertDialogProps {
+interface AlertDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
@@ -20,7 +20,7 @@ export function AppAlertDialog({
   cancelLabel = 'Cancel',
   onAction,
   tone = 'default',
-}: AppAlertDialogProps) {
+}: AlertDialogProps) {
   return (
     <RadixAlertDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixAlertDialog.Portal>
