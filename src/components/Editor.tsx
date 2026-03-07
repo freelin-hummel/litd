@@ -2,10 +2,10 @@ import Collaboration from '@tiptap/extension-collaboration';
 import Placeholder from '@tiptap/extension-placeholder';
 import StarterKit from '@tiptap/starter-kit';
 import { EditorContent, useEditor } from '@tiptap/react';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Tldraw } from 'tldraw';
 import { Zap } from 'lucide-react';
-import { getCollaborationDoc } from '../lib/collection';
+import { getCollaborationDoc, releaseCollaborationDoc } from '../lib/collection';
 import type { WorldDoc } from '../lib/collection';
 
 interface EditorProps {
@@ -15,6 +15,11 @@ interface EditorProps {
 function DocumentEditor({ doc }: { doc: WorldDoc }) {
   const collaborationDoc = useMemo(() => getCollaborationDoc(doc.id), [doc.id]);
 
+  useEffect(() => {
+    const currentDocId = doc.id;
+    return () => releaseCollaborationDoc(currentDocId);
+  }, [doc.id]);
+
   const editor = useEditor(
     {
       extensions: [
@@ -22,7 +27,7 @@ function DocumentEditor({ doc }: { doc: WorldDoc }) {
           undoRedo: false,
         }),
         Placeholder.configure({
-          placeholder: 'Start writing your worldbuilding notes…',
+          placeholder: 'Start writing your world-building notes…',
           emptyEditorClass: 'is-editor-empty',
         }),
         Collaboration.configure({

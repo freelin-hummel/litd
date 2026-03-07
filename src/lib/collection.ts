@@ -123,9 +123,9 @@ function deriveSingular(label: string): string {
 }
 
 /** Generate a unique ID for a user-created category. */
-let catCounter = 0;
+let categoryIdSequence = 0;
 function generateCategoryId(): string {
-  return `cat-${Date.now().toString(36)}-${(++catCounter).toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+  return `cat-${Date.now().toString(36)}-${(++categoryIdSequence).toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
 /** Load the category list from localStorage, or return null if not found. */
@@ -184,6 +184,7 @@ function reconcileStore(categories: Category[], docs: StoredDocs): WorldStore {
     ...category,
     docIds: category.docIds.filter((docId) => {
       if (docs[docId]) return true;
+      console.warn(`Recovered missing document metadata for "${docId}" from saved categories.`);
       docs[docId] = {
         id: docId,
         title: 'Untitled',
@@ -258,6 +259,13 @@ export function getCollaborationDoc(docId: string): Y.Doc {
   yDocCache.set(docId, yDoc);
   yPersistenceCache.set(docId, new IndexeddbPersistence(`litd:tiptap:${docId}`, yDoc));
   return yDoc;
+}
+
+export function releaseCollaborationDoc(docId: string): void {
+  yPersistenceCache.get(docId)?.destroy();
+  yPersistenceCache.delete(docId);
+  yDocCache.get(docId)?.destroy();
+  yDocCache.delete(docId);
 }
 
 /**
