@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import type { DocMode } from '@blocksuite/blocks';
 import { Sidebar } from './components/Sidebar';
 import { Editor } from './components/Editor';
@@ -25,6 +25,10 @@ function App() {
   // Per-document editor mode: docId → DocMode
   const [docModes, setDocModes] = useState<Map<string, DocMode>>(() => new Map());
 
+  // Keep a ref so the storeChange callback can always read the latest value.
+  const activeDocIdRef = useRef<string | null>(activeDocId);
+  activeDocIdRef.current = activeDocId;
+
   useEffect(() => {
     applyTheme(theme);
   }, [theme]);
@@ -43,6 +47,12 @@ function App() {
   }, []);
 
   const handleStoreChange = useCallback(() => {
+    // If the previously active doc has been removed from all categories, clear it
+    // and fall back to the first available doc (first category, first entry).
+    const allDocIds = new Set(store.categories.flatMap((c) => c.docIds));
+    if (activeDocIdRef.current !== null && !allDocIds.has(activeDocIdRef.current)) {
+      setActiveDocId(store.categories.flatMap((c) => c.docIds)[0] ?? null);
+    }
     forceUpdate((n) => n + 1);
   }, []);
 
