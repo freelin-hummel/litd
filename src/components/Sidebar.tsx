@@ -7,12 +7,13 @@ import {
   renameCategory,
   updateWorkspaceMetadata,
 } from '../lib/collection';
-import { createPageInCategory, listCategoryPages } from '../lib/pages';
+import { createPageInCategory, listCategoryPages, setPagePinned } from '../lib/pages';
 import {
   getCategoryIcon,
   ChevronRight,
   FileText,
   Pencil,
+  Pin,
   Plus,
   Trash2,
   Zap,
@@ -529,20 +530,39 @@ export function Sidebar({
                 <CollapsibleContent>
                   <ul className="sidebar-doc-list">
                     {pages.map((page) => (
-                      <li key={page.id}>
+                      <li key={page.id} className="sidebar-doc-row">
                         <Button
                           className={`sidebar-doc-item ${activePageId === page.id ? 'active' : ''}`}
                           variant="ghost"
                           size="sm"
                           onClick={() => onSelectPage(page.id)}
-                          title={`${page.title} · ${page.sidebarMeta}`}
+                          title={`${page.title} · ${page.sidebarMeta}${page.pinned ? ' · Pinned' : ''}`}
                         >
                           <FileText size={11} aria-hidden="true" />
                           <span className="sidebar-doc-content">
                             <span className="sidebar-doc-title">{page.title}</span>
+                            {page.pinned ? (
+                              <span className="sidebar-doc-pin-pill">
+                                <Pin size={10} aria-hidden="true" />
+                                Pinned
+                              </span>
+                            ) : null}
                             <span className="sidebar-doc-meta">{page.sidebarMeta}</span>
                           </span>
                         </Button>
+                        <IconButton
+                          className={`sidebar-doc-pin-btn ${page.pinned ? 'active' : ''}`}
+                          variant="ghost"
+                          size="sm"
+                          label={`${page.pinned ? 'Unpin' : 'Pin'} ${page.title}`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setPagePinned(store, page.id, !page.pinned);
+                            onStoreChange();
+                          }}
+                        >
+                          <Pin size={11} aria-hidden="true" />
+                        </IconButton>
                       </li>
                     ))}
                     {addingDocTo === category.id ? (

@@ -2,6 +2,7 @@ import {
   addDocToCategory,
   getDoc,
   setDocMode,
+  setDocPinned,
   type Category,
   type EditorMode,
   type WorkspaceModeMetadata,
@@ -75,7 +76,20 @@ export function getPageTitle(store: WorldStore, pageId: string): string {
 export function listCategoryPages(store: WorldStore, category: Category): PageMetadata[] {
   return category.docIds
     .map((pageId) => getPage(store, pageId))
-    .filter((page): page is PageMetadata => page !== null);
+    .filter((page): page is PageMetadata => page !== null)
+    .sort((left, right) => {
+      if (left.pinned !== right.pinned) {
+        return left.pinned ? -1 : 1;
+      }
+
+      const leftSortIndex = left.sortIndex ?? Number.MAX_SAFE_INTEGER;
+      const rightSortIndex = right.sortIndex ?? Number.MAX_SAFE_INTEGER;
+      if (leftSortIndex !== rightSortIndex) {
+        return leftSortIndex - rightSortIndex;
+      }
+
+      return left.title.localeCompare(right.title);
+    });
 }
 
 export function createPageInCategory(
@@ -88,6 +102,10 @@ export function createPageInCategory(
 
 export function setPageMode(store: WorldStore, pageId: string, mode: EditorMode): void {
   setDocMode(store, pageId, mode);
+}
+
+export function setPagePinned(store: WorldStore, pageId: string, pinned: boolean): void {
+  setDocPinned(store, pageId, pinned);
 }
 
 export function getAllPageIds(store: WorldStore): string[] {

@@ -152,7 +152,7 @@ function createDefaultWorkspaceMetadata(): WorkspaceMetadata {
       document: {
         label: 'Document',
         description: 'Structured page editor view over the shared workspace model.',
-        sidebarMeta: 'Markdown',
+        sidebarMeta: 'Document',
         badgeLabel: 'Document view',
       },
       canvas: {
@@ -225,8 +225,6 @@ function isValidDocumentPage(value: unknown): boolean {
 
   const page = value as Record<string, unknown>;
   return (
-    (typeof page.markdown === 'string' || page.markdown === undefined) &&
-    (typeof page.updatedAt === 'string' || page.updatedAt === null || page.updatedAt === undefined) &&
     (page.model === undefined || (page.model !== null && typeof page.model === 'object'))
   );
 }
@@ -593,6 +591,27 @@ export function setDocMode(store: WorldStore, docId: string, mode: EditorMode): 
   if (!doc || doc.mode === mode) return;
   doc.mode = mode;
   syncStoredDocPage(store, docId);
+  saveDocs(store.docs);
+}
+
+export function setDocPinned(store: WorldStore, docId: string, pinned: boolean): void {
+  const doc = store.docs[docId];
+  if (!doc || doc.page.model.page.metadata.pinned === pinned) return;
+
+  doc.page = {
+    ...doc.page,
+    model: {
+      ...doc.page.model,
+      page: {
+        ...doc.page.model.page,
+        metadata: {
+          ...doc.page.model.page.metadata,
+          pinned,
+        },
+      },
+    },
+  };
+
   saveDocs(store.docs);
 }
 

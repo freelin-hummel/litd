@@ -10,8 +10,6 @@ import { IndexeddbPersistence } from 'y-indexeddb';
 import * as Y from 'yjs';
 
 export interface DocumentPage {
-  markdown: string;
-  updatedAt: string | null;
   model: PageContentModel;
 }
 
@@ -111,11 +109,8 @@ function getHocuspocusToken(): string | null {
 
 export function createDocumentPage(
   { id, title, mode, categoryIds = [], sortIndex = null }: DocumentPageOptions,
-  markdown = '',
 ): DocumentPage {
   return {
-    markdown,
-    updatedAt: markdown ? new Date().toISOString() : null,
     model: createPageContentModel(
       { id, title, mode },
       { categoryIds, sortIndex },
@@ -133,8 +128,6 @@ export function normalizeDocumentPage(
 
   const record = value as Record<string, unknown>;
   return {
-    markdown: typeof record.markdown === 'string' ? record.markdown : '',
-    updatedAt: typeof record.updatedAt === 'string' ? record.updatedAt : null,
     model: normalizePageContentModel(
       record.model,
       { id, title, mode },

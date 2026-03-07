@@ -2,8 +2,9 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Editor } from './components/Editor';
 import { EditorToolbar } from './components/EditorToolbar';
-import { initWorldStore } from './lib/collection';
+import { initWorldStore, saveDocumentPage } from './lib/collection';
 import type { WorldStore, EditorMode } from './lib/collection';
+import type { DocumentPage } from './lib/document';
 import {
   getAllPageIds,
   getInitialActivePageId,
@@ -57,6 +58,10 @@ function App() {
     setTheme(next);
   }, []);
 
+  const handleDocumentPageChange = useCallback((pageId: string, page: DocumentPage) => {
+    saveDocumentPage(store, pageId, page);
+  }, []);
+
   const handleModeChange = useCallback(
     (mode: EditorMode) => {
       if (!activePageId) return;
@@ -85,7 +90,12 @@ function App() {
             onModeChange={handleModeChange}
           />
         )}
-        <Editor doc={activePage} theme={theme} workspace={store.workspace} />
+        <Editor
+          doc={activePage}
+          theme={theme}
+          workspace={store.workspace}
+          onDocumentPageChange={handleDocumentPageChange}
+        />
       </main>
     </div>
   );

@@ -4,6 +4,7 @@ import { Zap } from 'lucide-react';
 import type { ThemeId } from '../themes';
 import { getThemeMeta } from '../themes';
 import { releaseCollaborationSession } from '../lib/collection';
+import type { DocumentPage } from '../lib/document';
 import type { WorldDoc, WorkspaceMetadata } from '../lib/collection';
 import { LexicalDocumentEditor } from './LexicalDocumentEditor';
 
@@ -11,6 +12,7 @@ interface EditorProps {
   doc: WorldDoc | null;
   theme: ThemeId;
   workspace: WorkspaceMetadata;
+  onDocumentPageChange: (docId: string, page: DocumentPage) => void;
 }
 
 interface CanvasMountedEditor {
@@ -19,7 +21,13 @@ interface CanvasMountedEditor {
   };
 }
 
-function DocumentEditor({ doc }: { doc: WorldDoc }) {
+function DocumentEditor({
+  doc,
+  onPageChange,
+}: {
+  doc: WorldDoc;
+  onPageChange: (page: DocumentPage) => void;
+}) {
   useEffect(() => {
     const docId = doc.id;
 
@@ -28,7 +36,7 @@ function DocumentEditor({ doc }: { doc: WorldDoc }) {
     };
   }, [doc.id]);
 
-  return <LexicalDocumentEditor key={doc.id} docId={doc.id} page={doc.page} />;
+  return <LexicalDocumentEditor key={doc.id} docId={doc.id} page={doc.page} onPageChange={onPageChange} />;
 }
 
 const TLDRAW_COMPONENTS = {
@@ -73,7 +81,7 @@ function CanvasEditor({
   );
 }
 
-export function Editor({ doc, theme, workspace }: EditorProps) {
+export function Editor({ doc, theme, workspace, onDocumentPageChange }: EditorProps) {
   if (!doc) {
     return (
       <div className="editor-empty">
@@ -93,7 +101,11 @@ export function Editor({ doc, theme, workspace }: EditorProps) {
       {doc.mode === 'canvas' ? (
         <CanvasEditor key={doc.id} doc={doc} theme={theme} workspace={workspace} />
       ) : (
-        <DocumentEditor key={doc.id} doc={doc} />
+        <DocumentEditor
+          key={doc.id}
+          doc={doc}
+          onPageChange={(page) => onDocumentPageChange(doc.id, page)}
+        />
       )}
     </div>
   );

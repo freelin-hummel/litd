@@ -5,15 +5,23 @@ A collaborative knowledge workspace powered by [Lexical](https://lexical.dev/) a
 ## Features
 
 - **Rich document editing** via Lexical with Yjs-backed collaborative document state
-- **Freeform canvas mode** via tldraw for diagrams, layouts, and relationship boards
-- **Flexible sidebar collections** with metadata-driven icons, tags, pinning, custom fields, asset references, and grouping dimensions
-- **Editable workspace branding** for shell title/subtitle plus document/canvas labels and badges
+- **Freeform canvas mode** via tldraw with per-page local persistence
+- **Generic sidebar collections** with stored category metadata and page membership
+- **Editable workspace branding** for the shell title/subtitle plus document/canvas labels and badges
 - **Seeded generic workspace collections**:
   - Notes · Research · People · Spaces · Projects
-- **Create new pages** in any collection with a single click
+- **Create, rename, and remove collections** plus create new pages in any collection
 - **CRDT-backed document model** using Yjs, Hocuspocus, and IndexedDB persistence
 - **Two built-in themes** with an instant switcher in the sidebar footer
 - **Lucide icons** throughout — no emoji
+
+## Current Status
+
+This repo is partway through the broader "general knowledge workspace" plan.
+
+- Implemented today: generic shell vocabulary, seeded non-TTRPG collections, workspace/mode branding, category metadata persistence, a normalized shared page-content schema, and an initial block-registry seam for Lexical.
+- Partially implemented: document-mode top-level Lexical blocks now sync into `PageContentModel`, while live collaboration still runs through Yjs/Hocuspocus. Canvas still persists its own tldraw state by page id.
+- Not implemented yet: asset library UI/storage flows, PDF rendering/embed modes, pinned block surfaces, mechanics-aware blocks, faceted retrieval UX, shared document/canvas projections over the same block graph, and test coverage for migrations/serialization.
 
 ## Themes
 
@@ -69,7 +77,7 @@ Feature components should prefer composing these primitives rather than using Ra
 
 ## Shared page structure
 
-The app now treats document and canvas as two projections of the same persisted page structure:
+The app defines a shared page-content schema intended to back both document and canvas rendering modes. Today, that schema is used for page metadata normalization and future compatibility seams; it is not yet the sole persisted source of truth for both editors.
 
 - **Page metadata**: stable page identity, title, mode, category membership, ordering metadata, tags, pinning, grouping, custom fields, and asset references
 - **Blocks**: meaningful document/content units that drag-and-drop editing can reorder, annotate, pin, and attach asset/mechanics metadata to
@@ -79,10 +87,10 @@ The app now treats document and canvas as two projections of the same persisted 
 
 This shared model lives in `src/lib/document-pages.ts` and is persisted alongside page content metadata in `src/lib/document.ts`.
 
-- Lexical is the structured document editor over that shared model.
-- Canvas is the spatial editor/view over the same page identity and related records.
-- Categories remain one organizational projection, but their presentation and metadata are persisted on each category record instead of being inferred from category ids in generic UI helpers.
-- `src/lib/block-registry.ts` defines the initial renderer-agnostic block registry seam for Lexical nodes, markdown behavior, canvas projection behavior, and mechanics-aware metadata support.
+- Lexical currently uses Yjs/Hocuspocus as its live document state and syncs top-level blocks into `PageContentModel` for canonical persistence.
+- Canvas currently uses tldraw's own persisted state keyed by page id.
+- Categories remain one organizational projection, and their presentation metadata is persisted on each category record instead of being inferred from category ids in generic UI helpers.
+- `src/lib/block-registry.ts` defines the initial renderer-agnostic block registry seam for Lexical nodes and markdown behavior, with future hooks for canvas projection and richer block metadata.
 
 ## Getting Started
 

@@ -8,6 +8,7 @@ import {
   Map,
   MapPin,
   Pencil,
+  Pin,
   Plus,
   Shield,
   Skull,
@@ -58,4 +59,4 @@ export const DocumentModeIcon = AlignLeft;
 /** Canvas-editor mode icon */
 export const CanvasModeIcon = Map;
 
-export { ChevronRight, FileText, Folder, Pencil, Plus, Trash2, Zap };
+export { ChevronRight, FileText, Folder, Pencil, Pin, Plus, Trash2, Zap };
