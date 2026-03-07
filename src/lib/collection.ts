@@ -261,6 +261,34 @@ export function getCollaborationDoc(docId: string): Y.Doc {
   return yDoc;
 }
 
+export function waitForCollaborationDocSync(docId: string): Promise<void> {
+  const persistence = yPersistenceCache.get(docId);
+  if (!persistence) return Promise.resolve();
+  if (persistence.synced) return Promise.resolve();
+  return persistence.whenSynced.then(() => undefined);
+}
+
+export function isCollaborationDocSynced(docId: string): boolean {
+  return yPersistenceCache.get(docId)?.synced ?? false;
+}
+
+export async function loadDocumentEditorState(docId: string): Promise<string | null> {
+  getCollaborationDoc(docId);
+  const persistence = yPersistenceCache.get(docId);
+  if (!persistence) return null;
+
+  await waitForCollaborationDocSync(docId);
+  const value = await persistence.get('lexical-editor-state');
+  return typeof value === 'string' ? value : null;
+}
+
+export async function saveDocumentEditorState(docId: string, editorState: string): Promise<void> {
+  getCollaborationDoc(docId);
+  const persistence = yPersistenceCache.get(docId);
+  if (!persistence) return;
+  await persistence.set('lexical-editor-state', editorState);
+}
+
 export function releaseCollaborationDoc(docId: string): void {
   yPersistenceCache.get(docId)?.destroy();
   yPersistenceCache.delete(docId);

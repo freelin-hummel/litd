@@ -58,10 +58,13 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MouseEvent } from 'react';
 import { DefaultQuickActions, Tldraw } from 'tldraw';
-import type * as Y from 'yjs';
 import type { ThemeId } from '../themes';
 import { getThemeMeta } from '../themes';
-import { getCollaborationDoc, releaseCollaborationDoc } from '../lib/collection';
+import {
+  loadDocumentEditorState,
+  saveDocumentEditorState,
+  releaseCollaborationDoc,
+} from '../lib/collection';
 import type { WorldDoc } from '../lib/collection';
 import {
   Button,
@@ -88,8 +91,6 @@ type BlockType = 'paragraph' | HeadingTagType | 'quote' | 'ul' | 'ol';
 
 type TextFormat = 'bold' | 'italic' | 'underline' | 'strikethrough';
 
-const DOCUMENT_STATE_MAP_KEY = 'document';
-const DOCUMENT_STATE_KEY = 'editorState';
 const DOCUMENT_PLACEHOLDER = 'Start writing your world-building notes…';
 
 const BLOCK_TYPE_LABELS: Record<BlockType, string> = {
@@ -174,56 +175,24 @@ function applyBlockType(editor: LexicalEditor, nextBlockType: BlockType) {
   });
 }
 
-function DocumentSyncPlugin({ stateStore }: { stateStore: Y.Map<string> }) {
-  const [editor] = useLexicalComposerContext();
-  const lastSavedStateRef = useRef(stateStore.get(DOCUMENT_STATE_KEY) ?? '');
-  const isApplyingRemoteStateRef = useRef(false);
-
-  useEffect(() => {
-    const serializedState = stateStore.get(DOCUMENT_STATE_KEY);
-    if (!serializedState) return;
-
-    try {
-      lastSavedStateRef.current = serializedState;
-      editor.setEditorState(editor.parseEditorState(serializedState));
-    } catch (error) {
-      console.error('Failed to restore the saved document state.', error);
-    }
-  }, [editor, stateStore]);
-
-  useEffect(() => {
-    const handleStoreChange = () => {
-      const serializedState = stateStore.get(DOCUMENT_STATE_KEY) ?? '';
-      if (!serializedState || serializedState === lastSavedStateRef.current) return;
-
-      try {
-        isApplyingRemoteStateRef.current = true;
-        lastSavedStateRef.current = serializedState;
-        editor.setEditorState(editor.parseEditorState(serializedState));
-      } catch (error) {
-        console.error('Failed to apply an updated document state.', error);
-      } finally {
-        queueMicrotask(() => {
-          isApplyingRemoteStateRef.current = false;
-        });
-      }
-    };
-
-    stateStore.observe(handleStoreChange);
-    return () => stateStore.unobserve(handleStoreChange);
-  }, [editor, stateStore]);
+function DocumentPersistencePlugin({
+  docId,
+  initialSerializedState,
+}: {
+  docId: string;
+  initialSerializedState: string | null;
+}) {
+  const lastSavedStateRef = useRef(initialSerializedState ?? '');
 
   return (
     <OnChangePlugin
       ignoreSelectionChange={true}
       onChange={(editorState) => {
-        if (isApplyingRemoteStateRef.current) return;
-
         const serializedState = JSON.stringify(editorState.toJSON());
         if (serializedState === lastSavedStateRef.current) return;
 
         lastSavedStateRef.current = serializedState;
-        stateStore.set(DOCUMENT_STATE_KEY, serializedState);
+        void saveDocumentEditorState(docId, serializedState);
       }}
     />
   );
@@ -475,16 +444,30 @@ function DocumentToolbarPlugin() {
 }
 
 function DocumentEditor({ doc }: { doc: WorldDoc }) {
-  const collaborationDoc = useMemo(() => getCollaborationDoc(doc.id), [doc.id]);
-  const stateStore = useMemo(
-    () => collaborationDoc.getMap<string>(DOCUMENT_STATE_MAP_KEY),
-    [collaborationDoc],
+  const [initialSerializedState, setInitialSerializedState] = useState<string | null | undefined>(
+    undefined,
   );
 
   useEffect(() => {
     const currentDocId = doc.id;
     return () => releaseCollaborationDoc(currentDocId);
   }, [doc.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    setInitialSerializedState(undefined);
+    void loadDocumentEditorState(doc.id).then((serializedState) => {
+      if (!cancelled) {
+        setInitialSerializedState(serializedState);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [doc.id]);
+
   const initialConfig = useMemo(
     () => ({
       namespace: `litd-document-${doc.id}`,
@@ -493,18 +476,25 @@ function DocumentEditor({ doc }: { doc: WorldDoc }) {
         throw error;
       },
       editorState(editor: LexicalEditor) {
-        const serializedState = stateStore.get(DOCUMENT_STATE_KEY);
-        if (!serializedState) return;
+        if (!initialSerializedState) return;
 
         try {
-          editor.setEditorState(editor.parseEditorState(serializedState));
+          editor.setEditorState(editor.parseEditorState(initialSerializedState));
         } catch (error) {
           console.error('Failed to restore the saved document state.', error);
         }
       },
     }),
-    [doc.id, stateStore],
+    [doc.id, initialSerializedState],
   );
+
+  if (initialSerializedState === undefined) {
+    return (
+      <div className="editor-loading">
+        <span>Loading document…</span>
+      </div>
+    );
+  }
 
   return (
     <div className="editor-document-shell">
@@ -526,7 +516,10 @@ function DocumentEditor({ doc }: { doc: WorldDoc }) {
           <HistoryPlugin />
           <ListPlugin />
           <MarkdownShortcutPlugin transformers={MARKDOWN_TRANSFORMERS} />
-          <DocumentSyncPlugin stateStore={stateStore} />
+          <DocumentPersistencePlugin
+            docId={doc.id}
+            initialSerializedState={initialSerializedState}
+          />
         </LexicalComposer>
       </div>
     </div>
