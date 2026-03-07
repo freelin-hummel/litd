@@ -27,7 +27,7 @@ function DocumentEditor({ doc }: { doc: WorldDoc }) {
     };
   }, [doc.id]);
 
-  return <LexicalDocumentEditor key={doc.id} docId={doc.id} docTitle={doc.title} page={doc.page} />;
+  return <LexicalDocumentEditor key={doc.id} docId={doc.id} page={doc.page} />;
 }
 
 const TLDRAW_COMPONENTS = {

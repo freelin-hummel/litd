@@ -21,7 +21,6 @@ import { getCollaborationSession } from '../lib/collection';
 
 interface LexicalDocumentEditorProps {
   docId: string;
-  docTitle: string;
   page: DocumentPage;
 }
 
