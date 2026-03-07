@@ -1,10 +1,10 @@
-import type { DocMode } from '@blocksuite/blocks';
-import { CanvasModeIcon, PageModeIcon } from '../lib/icons';
+import type { EditorMode } from '../lib/collection';
+import { CanvasModeIcon, DocumentModeIcon } from '../lib/icons';
 
 interface EditorToolbarProps {
   docTitle: string;
-  mode: DocMode;
-  onModeChange: (mode: DocMode) => void;
+  mode: EditorMode;
+  onModeChange: (mode: EditorMode) => void;
 }
 
 export function EditorToolbar({ docTitle, mode, onModeChange }: EditorToolbarProps) {
@@ -15,19 +15,19 @@ export function EditorToolbar({ docTitle, mode, onModeChange }: EditorToolbarPro
       </span>
       <div className="editor-mode-toggle" role="group" aria-label="Editor mode">
         <button
-          className={`editor-mode-btn ${mode === 'page' ? 'active' : ''}`}
-          onClick={() => onModeChange('page')}
-          aria-pressed={mode === 'page'}
-          title="Page editor — structured document"
+          className={`editor-mode-btn ${mode === 'document' ? 'active' : ''}`}
+          onClick={() => onModeChange('document')}
+          aria-pressed={mode === 'document'}
+          title="Document editor — collaborative rich text powered by TipTap"
         >
-          <PageModeIcon size={14} aria-hidden="true" />
-          Page
+          <DocumentModeIcon size={14} aria-hidden="true" />
+          Document
         </button>
         <button
-          className={`editor-mode-btn ${mode === 'edgeless' ? 'active' : ''}`}
-          onClick={() => onModeChange('edgeless')}
-          aria-pressed={mode === 'edgeless'}
-          title="Canvas editor — maps, diagrams, freeform layout"
+          className={`editor-mode-btn ${mode === 'canvas' ? 'active' : ''}`}
+          onClick={() => onModeChange('canvas')}
+          aria-pressed={mode === 'canvas'}
+          title="Canvas editor — freeform maps and diagrams powered by tldraw"
         >
           <CanvasModeIcon size={14} aria-hidden="true" />
           Canvas

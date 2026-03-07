@@ -235,11 +235,11 @@ export function Sidebar({
                       <button
                         className={`sidebar-doc-item ${activeDocId === docId ? 'active' : ''}`}
                         onClick={() => onSelectDoc(docId)}
-                        title={getDocTitle(store.collection, docId)}
+                         title={getDocTitle(store, docId)}
                       >
                         <FileText size={11} aria-hidden="true" />
                         <span className="sidebar-doc-title">
-                          {getDocTitle(store.collection, docId)}
+                           {getDocTitle(store, docId)}
                         </span>
                       </button>
                     </li>

@@ -1,14 +1,15 @@
 # LITD — Collaborative TTRPG Worldbuilder
 
-A collaborative tabletop RPG worldbuilding application powered by [BlockSuite](https://blocksuite.io/).
+A collaborative tabletop RPG worldbuilding application powered by [TipTap](https://tiptap.dev/) and [tldraw](https://tldraw.dev/).
 
 ## Features
 
-- **Rich document editing** via BlockSuite's `AffineEditorContainer` (supports paragraphs, headings, lists, code blocks, tables, and more)
+- **Rich document editing** via TipTap with Yjs-backed collaborative document state
+- **Freeform canvas mode** via tldraw for maps, diagrams, and relationship boards
 - **TTRPG-organised sidebar** with six worldbuilding categories:
   - Worlds · Locations · Factions · Characters · Lore & History · Bestiary
 - **Create new documents** in any category with a single click
-- **CRDT-backed data model** (Yjs via BlockSuite) — ready for real-time multi-user collaboration
+- **CRDT-backed document model** using Yjs with IndexedDB persistence, ready for Hocuspocus-style multiplayer sync
 - **Two built-in themes** with an instant switcher in the sidebar footer
 - **Lucide icons** throughout — no emoji
 
@@ -36,24 +37,26 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 | Layer | Technology |
 |-------|-----------|
-| Editor | [BlockSuite](https://blocksuite.io/) `@blocksuite/presets` + `@blocksuite/blocks` |
-| Data / CRDT | `@blocksuite/store` + Yjs |
+| Document editor | [TipTap](https://tiptap.dev/) + StarterKit + Collaboration |
+| Canvas | [tldraw](https://tldraw.dev/) |
+| Data / CRDT | Yjs + `y-indexeddb` |
 | Icons | [lucide-react](https://lucide.dev/) |
 | UI framework | React 18 + TypeScript |
 | Build tool | Vite 5 |
 
 ## Adding Real-Time Collaboration
 
-BlockSuite is built on top of [Yjs](https://github.com/yjs/yjs) CRDTs. To enable live multi-user
-sync, attach a `y-websocket` (or `y-webrtc`) provider to the `DocCollection`'s underlying `Y.Doc`:
+TipTap's collaboration extension is built on top of [Yjs](https://github.com/yjs/yjs) CRDTs. To enable
+live multi-user sync, attach a Hocuspocus or Yjs provider to the document returned by
+`getCollaborationDoc(docId)`:
 
 ```ts
-import { WebsocketProvider } from 'y-websocket';
-import { store } from './src/lib/collection';
+import { HocuspocusProvider } from '@hocuspocus/provider';
+import { getCollaborationDoc } from './src/lib/collection';
 
-const wsProvider = new WebsocketProvider(
-  'wss://your-server.example.com',
-  'litd-room',
-  store.collection.doc,
-);
+const provider = new HocuspocusProvider({
+  url: 'wss://your-server.example.com',
+  name: 'litd-room',
+  document: getCollaborationDoc(docId),
+});
 ```

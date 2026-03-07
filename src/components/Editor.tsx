@@ -1,57 +1,71 @@
-import { useEffect, useRef } from 'react';
-import type { Doc } from '@blocksuite/store';
-import type { DocMode } from '@blocksuite/blocks';
-import type { AffineEditorContainer } from '@blocksuite/presets';
+import Collaboration from '@tiptap/extension-collaboration';
+import Placeholder from '@tiptap/extension-placeholder';
+import StarterKit from '@tiptap/starter-kit';
+import { EditorContent, useEditor } from '@tiptap/react';
+import { useMemo } from 'react';
+import { Tldraw } from 'tldraw';
 import { Zap } from 'lucide-react';
+import { getCollaborationDoc } from '../lib/collection';
+import type { WorldDoc } from '../lib/collection';
 
 interface EditorProps {
-  doc: Doc | null;
-  mode: DocMode;
+  doc: WorldDoc | null;
 }
 
-export function Editor({ doc, mode }: EditorProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const editorRef = useRef<AffineEditorContainer | null>(null);
-  // Keep a ref to the current mode so Effect 1 (doc rebuild) can read the
-  // latest mode without listing it as a dependency. This is intentional:
-  // adding `mode` to Effect 1's deps would cause a full editor teardown/rebuild
-  // on every mode change, which is wasteful and causes visible flicker.
-  // Effect 2 handles in-place mode switching via `switchEditor()` instead.
-  // Because modeRef is updated synchronously at the top of each render, Effect 1
-  // always reads the correct mode for the current render cycle.
-  const modeRef = useRef<DocMode>(mode);
-  modeRef.current = mode;
+function DocumentEditor({ doc }: { doc: WorldDoc }) {
+  const collaborationDoc = useMemo(() => getCollaborationDoc(doc.id), [doc.id]);
 
-  // Effect 1 — recreate the editor element when the active doc changes.
-  useEffect(() => {
-    if (!containerRef.current || !doc) return;
+  const editor = useEditor(
+    {
+      extensions: [
+        StarterKit.configure({
+          undoRedo: false,
+        }),
+        Placeholder.configure({
+          placeholder: 'Start writing your worldbuilding notes…',
+          emptyEditorClass: 'is-editor-empty',
+        }),
+        Collaboration.configure({
+          document: collaborationDoc,
+          field: 'content',
+        }),
+      ],
+      editorProps: {
+        attributes: {
+          class: 'editor-document-content',
+        },
+      },
+      immediatelyRender: false,
+    },
+    [collaborationDoc],
+  );
 
-    if (editorRef.current) {
-      editorRef.current.remove();
-      editorRef.current = null;
-    }
+  if (!editor) {
+    return (
+      <div className="editor-loading">
+        <span>Loading document…</span>
+      </div>
+    );
+  }
 
-    const el = document.createElement('affine-editor-container') as AffineEditorContainer;
-    // Set doc AND mode before connecting to DOM to avoid connectedCallback errors.
-    el.doc = doc;
-    el.mode = modeRef.current;
-    el.autofocus = true;
-    containerRef.current.appendChild(el);
-    editorRef.current = el;
+  return (
+    <div className="editor-document-shell">
+      <div className="editor-document-inner">
+        <EditorContent editor={editor} />
+      </div>
+    </div>
+  );
+}
 
-    return () => {
-      el.remove();
-      editorRef.current = null;
-    };
-  }, [doc]);
+function CanvasEditor({ doc }: { doc: WorldDoc }) {
+  return (
+    <div className="editor-canvas-shell">
+      <Tldraw persistenceKey={`litd:tldraw:${doc.id}`} />
+    </div>
+  );
+}
 
-  // Effect 2 — switch mode in-place (no teardown) when only the mode changes.
-  useEffect(() => {
-    if (editorRef.current) {
-      editorRef.current.switchEditor(mode);
-    }
-  }, [mode]);
-
+export function Editor({ doc }: EditorProps) {
   if (!doc) {
     return (
       <div className="editor-empty">
@@ -66,5 +80,9 @@ export function Editor({ doc, mode }: EditorProps) {
     );
   }
 
-  return <div className="editor-host" ref={containerRef} />;
+  return (
+    <div className="editor-host">
+      {doc.mode === 'canvas' ? <CanvasEditor doc={doc} /> : <DocumentEditor doc={doc} />}
+    </div>
+  );
 }
