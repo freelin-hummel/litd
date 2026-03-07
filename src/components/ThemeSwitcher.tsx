@@ -29,7 +29,6 @@ export function ThemeSwitcher({ currentTheme, onSwitch }: ThemeSwitcherProps) {
             title="Switch the shared application theme used by the app shell and canvas."
           >
             <Palette size={12} aria-hidden="true" />
-            <span className="sidebar-theme-label">Theme</span>
             <span className="sidebar-theme-current">{currentMeta.shortLabel}</span>
           </Button>
         </DropdownMenuTrigger>

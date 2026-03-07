@@ -20,9 +20,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.45rem;
+  gap: var(--theme-space-2);
   font-family: var(--font-ui);
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   font-weight: 600;
   line-height: 1;
   white-space: nowrap;
@@ -43,18 +43,18 @@
 }
 
 .ui-button--sm {
-  min-height: 1.85rem;
-  padding: 0.35rem 0.65rem;
+  min-height: var(--theme-control-height-sm);
+  padding: 0.25rem 0.55rem;
 }
 
 .ui-button--md {
-  min-height: 2.15rem;
-  padding: 0.45rem 0.8rem;
+  min-height: var(--theme-control-height-md);
+  padding: 0.35rem 0.7rem;
 }
 
 .ui-button--icon-only {
-  width: 2rem;
-  min-width: 2rem;
+  width: var(--theme-control-size-sm);
+  min-width: var(--theme-control-size-sm);
   padding: 0;
 }
 
@@ -108,14 +108,14 @@
 
 .ui-input {
   width: 100%;
-  min-height: 2rem;
+  min-height: var(--theme-control-height-md);
   border: 1px solid color-mix(in srgb, var(--theme-border) 70%, var(--theme-accent));
   border-radius: var(--theme-radius-sm);
   background: color-mix(in srgb, var(--theme-app-background) 84%, transparent);
   color: var(--theme-text);
   font-family: var(--font-ui);
-  font-size: 0.82rem;
-  padding: 0.45rem 0.65rem;
+  font-size: 0.78rem;
+  padding: 0.35rem 0.55rem;
 }
 
 .ui-input::placeholder {
@@ -124,10 +124,10 @@
 
 .ui-toggle-group {
   display: inline-flex;
-  gap: 0.2rem;
-  padding: 0.2rem;
+  gap: 2px;
+  padding: 2px;
   border: 1px solid var(--theme-border);
-  border-radius: calc(var(--theme-radius-sm) + 2px);
+  border-radius: calc(var(--theme-radius-sm) + 1px);
   background: color-mix(in srgb, var(--theme-panel) 82%, var(--theme-app-background));
 }
 
@@ -140,11 +140,11 @@
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: var(--theme-space-1);
   font-family: var(--font-ui);
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  padding: 0.35rem 0.7rem;
+  padding: 0.28rem 0.6rem;
 }
 
 .ui-toggle-item:hover {
@@ -158,28 +158,28 @@
 }
 
 .ui-dropdown-content {
-  min-width: 12rem;
+  min-width: 10.5rem;
   border: 1px solid var(--theme-border);
   border-radius: var(--theme-radius);
   background: color-mix(in srgb, var(--theme-surface-elevated) 92%, transparent);
   box-shadow: var(--theme-shadow-overlay);
-  padding: 0.35rem;
+  padding: var(--theme-space-1);
   z-index: 50;
 }
 
 .ui-dropdown-item {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--theme-space-2);
   width: 100%;
-  min-height: 2rem;
+  min-height: var(--theme-control-height-sm);
   border-radius: var(--theme-radius-sm);
   color: var(--theme-text);
   cursor: pointer;
   font-family: var(--font-ui);
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   line-height: 1.2;
-  padding: 0.45rem 0.6rem;
+  padding: 0.35rem 0.5rem;
   user-select: none;
 }
 
@@ -201,7 +201,7 @@
 
 .ui-dropdown-separator {
   height: 1px;
-  margin: 0.3rem 0;
+  margin: var(--theme-space-1) 0;
   background: var(--theme-border);
 }
 
@@ -213,9 +213,9 @@
   box-shadow: var(--theme-shadow-overlay);
   color: var(--theme-text);
   font-family: var(--font-ui);
-  font-size: 0.76rem;
+  font-size: 0.72rem;
   line-height: 1.4;
-  padding: 0.45rem 0.6rem;
+  padding: 0.35rem 0.5rem;
   z-index: 60;
 }
 
@@ -227,7 +227,7 @@
   position: fixed;
   inset: 0;
   background: var(--theme-overlay);
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(3px);
   z-index: 100;
 }
 
@@ -235,34 +235,34 @@
   position: fixed;
   top: 50%;
   left: 50%;
-  width: min(28rem, calc(100vw - 2rem));
+  width: min(24rem, calc(100vw - 1.5rem));
   transform: translate(-50%, -50%);
   border: 1px solid var(--theme-border);
   border-radius: var(--theme-radius);
   background: color-mix(in srgb, var(--theme-surface-elevated) 96%, transparent);
   box-shadow: var(--theme-shadow-overlay);
   color: var(--theme-text);
-  padding: 1rem;
+  padding: 0.85rem;
   z-index: 101;
 }
 
 .ui-alert-title {
   font-family: var(--font-brand);
-  font-size: 1rem;
-  margin-bottom: 0.45rem;
+  font-size: 0.94rem;
+  margin-bottom: var(--theme-space-2);
 }
 
 .ui-alert-description {
   color: var(--theme-text-muted);
-  font-size: 0.9rem;
-  line-height: 1.5;
+  font-size: 0.82rem;
+  line-height: 1.45;
 }
 
 .ui-alert-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 0.6rem;
-  margin-top: 1rem;
+  gap: var(--theme-space-2);
+  margin-top: var(--theme-space-4);
 }
 
 .ui-collapsible-content {

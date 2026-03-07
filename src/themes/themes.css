@@ -23,8 +23,17 @@
   --theme-overlay: var(--theme-flavor-overlay);
   --theme-shadow-elevated: var(--theme-flavor-shadow-elevated);
   --theme-shadow-overlay: var(--theme-flavor-shadow-overlay);
-  --theme-radius: 12px;
-  --theme-radius-sm: 8px;
+  --theme-radius: 10px;
+  --theme-radius-sm: 6px;
+  --theme-space-1: 4px;
+  --theme-space-2: 6px;
+  --theme-space-3: 8px;
+  --theme-space-4: 10px;
+  --theme-space-5: 12px;
+  --theme-space-6: 16px;
+  --theme-control-height-sm: 1.75rem;
+  --theme-control-height-md: 2rem;
+  --theme-control-size-sm: 1.75rem;
 
   --font-brand: var(--theme-flavor-font-brand);
   --font-ui: var(--theme-flavor-font-ui);
