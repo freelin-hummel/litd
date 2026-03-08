@@ -3,7 +3,6 @@ import { DefaultQuickActions, Tldraw } from 'tldraw';
 import { Zap } from 'lucide-react';
 import type { ThemeId } from '../themes';
 import { getThemeMeta } from '../themes';
-import { releaseCollaborationSession } from '../lib/collection';
 import type { DocumentPage } from '../lib/document';
 import type { WorldDoc, WorkspaceMetadata } from '../lib/collection';
 import { LexicalDocumentEditor } from './LexicalDocumentEditor';
@@ -28,14 +27,6 @@ function DocumentEditor({
   doc: WorldDoc;
   onPageChange: (page: DocumentPage) => void;
 }) {
-  useEffect(() => {
-    const docId = doc.id;
-
-    return () => {
-      releaseCollaborationSession(docId);
-    };
-  }, [doc.id]);
-
   return <LexicalDocumentEditor key={doc.id} docId={doc.id} page={doc.page} onPageChange={onPageChange} />;
 }
 
@@ -97,16 +88,14 @@ export function Editor({ doc, theme, workspace, onDocumentPageChange }: EditorPr
   }
 
   return (
-    <div className="editor-host">
-      {doc.mode === 'canvas' ? (
-        <CanvasEditor key={doc.id} doc={doc} theme={theme} workspace={workspace} />
-      ) : (
-        <DocumentEditor
-          key={doc.id}
-          doc={doc}
-          onPageChange={(page) => onDocumentPageChange(doc.id, page)}
-        />
-      )}
-    </div>
+    doc.mode === 'canvas' ? (
+      <CanvasEditor key={doc.id} doc={doc} theme={theme} workspace={workspace} />
+    ) : (
+      <DocumentEditor
+        key={doc.id}
+        doc={doc}
+        onPageChange={(page) => onDocumentPageChange(doc.id, page)}
+      />
+    )
   );
 }

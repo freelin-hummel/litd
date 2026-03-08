@@ -1,16 +1,45 @@
-import { CollaborationPlugin } from '@lexical/react/LexicalCollaborationPlugin';
-import { LexicalCollaboration } from '@lexical/react/LexicalCollaborationContext';
+import { $createCodeNode } from '@lexical/code';
+import {
+  $toggleLink,
+  createLinkMatcherWithRegExp,
+} from '@lexical/link';
+import {
+  INSERT_CHECK_LIST_COMMAND,
+  INSERT_ORDERED_LIST_COMMAND,
+  INSERT_UNORDERED_LIST_COMMAND,
+} from '@lexical/list';
 import { ContentEditable } from '@lexical/react/LexicalContentEditable';
 import type { InitialConfigType } from '@lexical/react/LexicalComposer';
 import { LexicalComposer } from '@lexical/react/LexicalComposer';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
-import { DraggableBlockPlugin_EXPERIMENTAL } from '@lexical/react/LexicalDraggableBlockPlugin';
+import { AutoLinkPlugin } from '@lexical/react/LexicalAutoLinkPlugin';
+import { CheckListPlugin } from '@lexical/react/LexicalCheckListPlugin';
+import { ClickableLinkPlugin } from '@lexical/react/LexicalClickableLinkPlugin';
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
+import { DraggableBlockPlugin_EXPERIMENTAL } from '@lexical/react/LexicalDraggableBlockPlugin';
+import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin';
+import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin';
+import { ListPlugin } from '@lexical/react/LexicalListPlugin';
 import { MarkdownShortcutPlugin } from '@lexical/react/LexicalMarkdownShortcutPlugin';
+import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin';
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
-import { GripVertical } from 'lucide-react';
+import { TabIndentationPlugin } from '@lexical/react/LexicalTabIndentationPlugin';
+import {
+  LexicalTypeaheadMenuPlugin,
+  MenuOption,
+  useBasicTypeaheadTriggerMatch,
+} from '@lexical/react/LexicalTypeaheadMenuPlugin';
+import { $createHeadingNode, $createQuoteNode } from '@lexical/rich-text';
+import {
+  $createParagraphNode,
+  $getSelection,
+  $isRangeSelection,
+  type TextNode,
+} from 'lexical';
+import { Code2, GripVertical, Link as LinkIcon, List as ListIcon, ListChecks, ListOrdered, Quote, TextCursorInput, Type } from 'lucide-react';
 import type { MutableRefObject } from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   getRegisteredLexicalNodes,
   getRegisteredMarkdownTransformers,
@@ -20,7 +49,28 @@ import {
   createLexicalInitialEditorState,
   syncDocumentPageFromSerializedEditorState,
 } from '../lib/document-editor';
-import { getCollaborationSession } from '../lib/collection';
+
+const URL_MATCHERS = [
+  createLinkMatcherWithRegExp(
+    /https?:\/\/(?:www\.)?[^\s/$.?#].[^\s]*/,
+    (text) => text,
+  ),
+  createLinkMatcherWithRegExp(
+    /(?:www\.)[^\s/$.?#].[^\s]*/,
+    (text) => `https://${text}`,
+  ),
+];
+
+class SlashCommandOption extends MenuOption {
+  constructor(
+    public readonly title: string,
+    public readonly keywords: string[],
+    public readonly icon: typeof Type,
+    public readonly run: (editor: ReturnType<typeof useLexicalComposerContext>[0], queryNode: TextNode | null) => void,
+  ) {
+    super(title);
+  }
+}
 
 interface LexicalDocumentEditorProps {
   docId: string;
@@ -30,7 +80,13 @@ interface LexicalDocumentEditorProps {
 
 function DraggableBlockMenu({ menuRef }: { menuRef: MutableRefObject<HTMLDivElement | null> }) {
   return (
-    <div ref={(node) => { menuRef.current = node; }} className="editor-document-drag-menu" aria-hidden="true">
+    <div
+      ref={(node) => {
+        menuRef.current = node;
+      }}
+      className="editor-document-drag-menu"
+      aria-hidden="true"
+    >
       <span className="editor-document-drag-handle">
         <GripVertical size={14} strokeWidth={1.8} />
       </span>
@@ -38,46 +94,153 @@ function DraggableBlockMenu({ menuRef }: { menuRef: MutableRefObject<HTMLDivElem
   );
 }
 
-function DraggableBlockTargetLine({ targetLineRef }: { targetLineRef: MutableRefObject<HTMLDivElement | null> }) {
-  return <div ref={(node) => { targetLineRef.current = node; }} className="editor-document-drag-target-line" aria-hidden="true" />;
+function DraggableBlockTargetLine({
+  targetLineRef,
+}: {
+  targetLineRef: MutableRefObject<HTMLDivElement | null>;
+}) {
+  return (
+    <div
+      ref={(node) => {
+        targetLineRef.current = node;
+      }}
+      className="editor-document-drag-target-line"
+      aria-hidden="true"
+    />
+  );
 }
 
-function PageModelSyncPlugin({
-  page,
-  onPageChange,
-}: {
-  page: DocumentPage;
-  onPageChange: (page: DocumentPage) => void;
-}) {
+function clearSlashQuery(textNodeContainingQuery: TextNode | null): void {
+  if (!textNodeContainingQuery) {
+    return;
+  }
+
+  textNodeContainingQuery.setTextContent('');
+}
+
+function createSlashCommandOptions(
+): SlashCommandOption[] {
+  return [
+    new SlashCommandOption('Text', ['paragraph', 'text', 'p'], TextCursorInput, (_editor, queryNode) => {
+      clearSlashQuery(queryNode);
+      const selection = $getSelection();
+      if ($isRangeSelection(selection)) {
+        const anchorNode = selection.anchor.getNode();
+        anchorNode.getTopLevelElementOrThrow().replace($createParagraphNode()).selectEnd();
+      }
+    }),
+    new SlashCommandOption('Heading 1', ['h1', 'heading', 'title'], Type, (_editor, queryNode) => {
+      clearSlashQuery(queryNode);
+      const selection = $getSelection();
+      if ($isRangeSelection(selection)) {
+        selection.anchor.getNode().getTopLevelElementOrThrow().replace($createHeadingNode('h1')).selectEnd();
+      }
+    }),
+    new SlashCommandOption('Heading 2', ['h2', 'heading', 'section'], Type, (_editor, queryNode) => {
+      clearSlashQuery(queryNode);
+      const selection = $getSelection();
+      if ($isRangeSelection(selection)) {
+        selection.anchor.getNode().getTopLevelElementOrThrow().replace($createHeadingNode('h2')).selectEnd();
+      }
+    }),
+    new SlashCommandOption('Quote', ['quote', 'blockquote'], Quote, (_editor, queryNode) => {
+      clearSlashQuery(queryNode);
+      const selection = $getSelection();
+      if ($isRangeSelection(selection)) {
+        selection.anchor.getNode().getTopLevelElementOrThrow().replace($createQuoteNode()).selectEnd();
+      }
+    }),
+    new SlashCommandOption('Bullet List', ['list', 'bullet', 'ul'], ListIcon, (activeEditor, queryNode) => {
+      clearSlashQuery(queryNode);
+      activeEditor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND, undefined);
+    }),
+    new SlashCommandOption('Numbered List', ['list', 'number', 'ol'], ListOrdered, (activeEditor, queryNode) => {
+      clearSlashQuery(queryNode);
+      activeEditor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND, undefined);
+    }),
+    new SlashCommandOption('Checklist', ['list', 'check', 'todo', 'task'], ListChecks, (activeEditor, queryNode) => {
+      clearSlashQuery(queryNode);
+      activeEditor.dispatchCommand(INSERT_CHECK_LIST_COMMAND, undefined);
+    }),
+    new SlashCommandOption('Code Block', ['code', 'pre'], Code2, (_editor, queryNode) => {
+      clearSlashQuery(queryNode);
+      const selection = $getSelection();
+      if ($isRangeSelection(selection)) {
+        selection.anchor.getNode().getTopLevelElementOrThrow().replace($createCodeNode()).selectStart();
+      }
+    }),
+    new SlashCommandOption('Link', ['link', 'url'], LinkIcon, (_editor, queryNode) => {
+      clearSlashQuery(queryNode);
+      const selection = $getSelection();
+      if ($isRangeSelection(selection)) {
+        $toggleLink('https://');
+      }
+    }),
+  ];
+}
+
+function SlashCommandsPlugin() {
   const [editor] = useLexicalComposerContext();
-  const pageRef = useRef(page);
-  const signatureRef = useRef('');
+  const [queryString, setQueryString] = useState<string | null>(null);
+  const checkForSlashTriggerMatch = useBasicTypeaheadTriggerMatch('/', {
+    minLength: 0,
+    maxLength: 32,
+  });
 
-  useEffect(() => {
-    pageRef.current = page;
-    const initialEditorState = createLexicalInitialEditorState(page);
-    signatureRef.current = initialEditorState ? JSON.stringify(initialEditorState) : '';
-  }, [page]);
+  const options = useMemo(() => createSlashCommandOptions(), []);
+  const filteredOptions = useMemo(() => {
+    const query = queryString?.trim().toLowerCase() ?? '';
+    if (!query) {
+      return options;
+    }
 
-  useEffect(
-    () =>
-      editor.registerUpdateListener(({ editorState }) => {
-        const nextPage = syncDocumentPageFromSerializedEditorState(pageRef.current, editorState.toJSON());
-        const nextInitialEditorState = createLexicalInitialEditorState(nextPage);
-        const nextSignature = nextInitialEditorState ? JSON.stringify(nextInitialEditorState) : '';
+    return options.filter((option) => {
+      const haystack = [option.title, ...option.keywords].join(' ').toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [options, queryString]);
 
-        if (nextSignature === signatureRef.current) {
-          return;
+  return (
+    <LexicalTypeaheadMenuPlugin
+      onQueryChange={setQueryString}
+      onSelectOption={(selectedOption, textNodeContainingQuery, closeMenu) => {
+        editor.update(() => {
+          selectedOption.run(editor, textNodeContainingQuery);
+        });
+        closeMenu();
+      }}
+      options={filteredOptions}
+      triggerFn={checkForSlashTriggerMatch}
+      menuRenderFn={(anchorElementRef, { selectedIndex, selectOptionAndCleanUp, setHighlightedIndex }) => {
+        if (!anchorElementRef.current || filteredOptions.length === 0) {
+          return null;
         }
 
-        signatureRef.current = nextSignature;
-        pageRef.current = nextPage;
-        onPageChange(nextPage);
-      }),
-    [editor, onPageChange],
+        return createPortal(
+          <div className="editor-slash-menu">
+            {filteredOptions.map((option, index) => {
+              const Icon = option.icon;
+              return (
+                <button
+                  key={option.key}
+                  type="button"
+                  className={`editor-slash-option ${selectedIndex === index ? 'active' : ''}`}
+                  onMouseEnter={() => setHighlightedIndex(index)}
+                  onClick={() => selectOptionAndCleanUp(option)}
+                >
+                  <span className="editor-slash-option-icon" aria-hidden="true">
+                    <Icon size={14} />
+                  </span>
+                  <span className="editor-slash-option-label">{option.title}</span>
+                </button>
+              );
+            })}
+          </div>,
+          anchorElementRef.current,
+        );
+      }}
+    />
   );
-
-  return null;
 }
 
 export function LexicalDocumentEditor({
@@ -85,7 +248,6 @@ export function LexicalDocumentEditor({
   page,
   onPageChange,
 }: LexicalDocumentEditorProps) {
-  const session = useMemo(() => getCollaborationSession(docId), [docId]);
   const [anchorElem, setAnchorElem] = useState<HTMLElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const targetLineRef = useRef<HTMLDivElement | null>(null);
@@ -95,10 +257,17 @@ export function LexicalDocumentEditor({
     const serializedEditorState = createLexicalInitialEditorState(page);
     return serializedEditorState ? JSON.stringify(serializedEditorState) : undefined;
   }, [page]);
+  const pageRef = useRef(page);
+  const signatureRef = useRef(initialEditorState ?? '');
+
+  useEffect(() => {
+    pageRef.current = page;
+    signatureRef.current = initialEditorState ?? '';
+  }, [page, initialEditorState]);
 
   const initialConfig = useMemo<InitialConfigType>(
     () => ({
-      editorState: null,
+      editorState: initialEditorState ?? undefined,
       namespace: 'litd-document-editor',
       nodes: registeredLexicalNodes,
       onError: (error: Error) => {
@@ -109,43 +278,59 @@ export function LexicalDocumentEditor({
         throw contextualError;
       },
     }),
-    [docId],
+    [docId, initialEditorState, registeredLexicalNodes],
   );
+
+  const handleChange = useCallback(
+    (editorState: Parameters<NonNullable<React.ComponentProps<typeof OnChangePlugin>['onChange']>>[0]) => {
+      const nextPage = syncDocumentPageFromSerializedEditorState(pageRef.current, editorState.toJSON());
+      const nextInitialEditorState = createLexicalInitialEditorState(nextPage);
+      const nextSignature = nextInitialEditorState ? JSON.stringify(nextInitialEditorState) : '';
+
+      if (nextSignature === signatureRef.current) {
+        return;
+      }
+
+      signatureRef.current = nextSignature;
+      pageRef.current = nextPage;
+      onPageChange(nextPage);
+    },
+    [onPageChange],
+  );
+
+  const handleAnchorRef = useCallback((element: HTMLDivElement | null) => {
+    setAnchorElem(element);
+  }, []);
 
   return (
     <div className="editor-document-shell">
-      <div className="editor-document-inner" ref={setAnchorElem}>
-        <LexicalComposer initialConfig={initialConfig}>
-          <LexicalCollaboration>
-            <CollaborationPlugin
-              id={docId}
-              providerFactory={(id, yjsDocMap) => {
-                yjsDocMap.set(id, session.doc);
-                return session.provider;
-              }}
-              shouldBootstrap
-              initialEditorState={initialEditorState}
-            />
-            <RichTextPlugin
-              contentEditable={<ContentEditable className="editor-document-content" />}
-              placeholder={null}
-              ErrorBoundary={LexicalErrorBoundary}
-            />
-            <MarkdownShortcutPlugin transformers={registeredMarkdownTransformers} />
-            <PageModelSyncPlugin page={page} onPageChange={onPageChange} />
-            {anchorElem ? (
-              <DraggableBlockPlugin_EXPERIMENTAL
-                anchorElem={anchorElem}
-                menuRef={menuRef}
-                targetLineRef={targetLineRef}
-                menuComponent={<DraggableBlockMenu menuRef={menuRef} />}
-                targetLineComponent={<DraggableBlockTargetLine targetLineRef={targetLineRef} />}
-                isOnMenu={(element) => menuRef.current?.contains(element) ?? false}
-              />
-            ) : null}
-          </LexicalCollaboration>
-        </LexicalComposer>
-      </div>
+      <LexicalComposer initialConfig={initialConfig}>
+        <RichTextPlugin
+          contentEditable={<ContentEditable className="editor-document-content ContentEditable__root" ref={handleAnchorRef} />}
+          placeholder={null}
+          ErrorBoundary={LexicalErrorBoundary}
+        />
+        <HistoryPlugin />
+        <ListPlugin />
+        <CheckListPlugin />
+        <LinkPlugin />
+        <ClickableLinkPlugin newTab />
+        <AutoLinkPlugin matchers={URL_MATCHERS} />
+        <TabIndentationPlugin maxIndent={7} />
+        <MarkdownShortcutPlugin transformers={registeredMarkdownTransformers} />
+        <OnChangePlugin onChange={handleChange} ignoreSelectionChange />
+        <SlashCommandsPlugin />
+        {anchorElem ? (
+          <DraggableBlockPlugin_EXPERIMENTAL
+            anchorElem={anchorElem}
+            menuRef={menuRef}
+            targetLineRef={targetLineRef}
+            menuComponent={<DraggableBlockMenu menuRef={menuRef} />}
+            targetLineComponent={<DraggableBlockTargetLine targetLineRef={targetLineRef} />}
+            isOnMenu={(element) => menuRef.current?.contains(element) ?? false}
+          />
+        ) : null}
+      </LexicalComposer>
     </div>
   );
 }

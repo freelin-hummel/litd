@@ -1,5 +1,5 @@
 import { CodeNode } from '@lexical/code';
-import { LinkNode } from '@lexical/link';
+import { AutoLinkNode, LinkNode } from '@lexical/link';
 import { TRANSFORMERS, type Transformer } from '@lexical/markdown';
 import { ListItemNode, ListNode } from '@lexical/list';
 import { HeadingNode, QuoteNode } from '@lexical/rich-text';
@@ -28,7 +28,7 @@ export interface BlockTypeRegistration {
   supportsMechanics: boolean;
 }
 
-const CORE_LEXICAL_NODES = [HeadingNode, QuoteNode, ListNode, ListItemNode, CodeNode, LinkNode] as const;
+const CORE_LEXICAL_NODES = [HeadingNode, QuoteNode, ListNode, ListItemNode, CodeNode, LinkNode, AutoLinkNode] as const;
 
 export const CORE_BLOCK_REGISTRY: readonly BlockTypeRegistration[] = [
   {
@@ -85,7 +85,7 @@ export const CORE_BLOCK_REGISTRY: readonly BlockTypeRegistration[] = [
     type: 'reference',
     label: 'Reference',
     description: 'Inline reference/link block that can point to pages, entities, or assets.',
-    lexicalNodes: [LinkNode],
+    lexicalNodes: [LinkNode, AutoLinkNode],
     markdown: { import: 'native', export: 'lossy' },
     canvas: { projection: 'card' },
     metadataSchema: { href: 'string', targetId: 'string', assetRefs: 'AssetReference[]' },
