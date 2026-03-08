@@ -215,11 +215,14 @@ export function syncDocumentPageFromSerializedEditorState(
   );
   const blockIdSet = new Set(nextRootBlockIds);
   const entityIdSet = new Set(Object.keys(page.model.entities));
+  const reusedBlockCount = import.meta.env.DEV
+    ? nextRootBlockIds.filter((blockId) => page.model.blocks[blockId]).length
+    : 0;
 
   logSyncDebug('document', 'canonical model updated from lexical', {
     pageId: page.model.page.id,
     blockCount: nextRootBlockIds.length,
-    reusedBlockCount: nextRootBlockIds.filter((blockId) => page.model.blocks[blockId]).length,
+    reusedBlockCount,
   });
 
   return {

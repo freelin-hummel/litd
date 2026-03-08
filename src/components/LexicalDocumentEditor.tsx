@@ -10,6 +10,7 @@ import {
 } from '@lexical/list';
 import { ContentEditable } from '@lexical/react/LexicalContentEditable';
 import { CollaborationPlugin } from '@lexical/react/LexicalCollaborationPlugin';
+import { LexicalCollaboration } from '@lexical/react/LexicalCollaborationContext';
 import type { InitialConfigType } from '@lexical/react/LexicalComposer';
 import { LexicalComposer } from '@lexical/react/LexicalComposer';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
@@ -416,42 +417,44 @@ export function LexicalDocumentEditor({
           {syncStatusLabel}
         </span>
         <span className="editor-sync-meta">
-          {participantCount} collaborator{participantCount === 1 ? '' : 's'}
+          {participantCount} participant{participantCount === 1 ? '' : 's'}
         </span>
       </div>
       <LexicalComposer initialConfig={initialConfig}>
-        <CollaborationPlugin
-          id={docId}
-          providerFactory={providerFactory}
-          shouldBootstrap={seedResolution.shouldBootstrap}
-          initialEditorState={initialEditorState}
-          awarenessData={{ docId, pageId: page.model.page.id, mode: 'document' }}
-        />
-        <RichTextPlugin
-          contentEditable={<ContentEditable className="editor-document-content ContentEditable__root" ref={handleAnchorRef} />}
-          placeholder={null}
-          ErrorBoundary={LexicalErrorBoundary}
-        />
-        <HistoryPlugin />
-        <ListPlugin />
-        <CheckListPlugin />
-        <LinkPlugin />
-        <ClickableLinkPlugin newTab />
-        <AutoLinkPlugin matchers={URL_MATCHERS} />
-        <TabIndentationPlugin maxIndent={7} />
-        <MarkdownShortcutPlugin transformers={registeredMarkdownTransformers} />
-        <OnChangePlugin onChange={handleChange} ignoreSelectionChange />
-        <SlashCommandsPlugin />
-        {anchorElem ? (
-          <DraggableBlockPlugin_EXPERIMENTAL
-            anchorElem={anchorElem}
-            menuRef={menuRef}
-            targetLineRef={targetLineRef}
-            menuComponent={<DraggableBlockMenu menuRef={menuRef} />}
-            targetLineComponent={<DraggableBlockTargetLine targetLineRef={targetLineRef} />}
-            isOnMenu={(element) => menuRef.current?.contains(element) ?? false}
+        <LexicalCollaboration>
+          <CollaborationPlugin
+            id={docId}
+            providerFactory={providerFactory}
+            shouldBootstrap={seedResolution.shouldBootstrap}
+            initialEditorState={initialEditorState}
+            awarenessData={{ docId, pageId: page.model.page.id, mode: 'document' }}
           />
-        ) : null}
+          <RichTextPlugin
+            contentEditable={<ContentEditable className="editor-document-content ContentEditable__root" ref={handleAnchorRef} />}
+            placeholder={null}
+            ErrorBoundary={LexicalErrorBoundary}
+          />
+          <HistoryPlugin />
+          <ListPlugin />
+          <CheckListPlugin />
+          <LinkPlugin />
+          <ClickableLinkPlugin newTab />
+          <AutoLinkPlugin matchers={URL_MATCHERS} />
+          <TabIndentationPlugin maxIndent={7} />
+          <MarkdownShortcutPlugin transformers={registeredMarkdownTransformers} />
+          <OnChangePlugin onChange={handleChange} ignoreSelectionChange />
+          <SlashCommandsPlugin />
+          {anchorElem ? (
+            <DraggableBlockPlugin_EXPERIMENTAL
+              anchorElem={anchorElem}
+              menuRef={menuRef}
+              targetLineRef={targetLineRef}
+              menuComponent={<DraggableBlockMenu menuRef={menuRef} />}
+              targetLineComponent={<DraggableBlockTargetLine targetLineRef={targetLineRef} />}
+              isOnMenu={(element) => menuRef.current?.contains(element) ?? false}
+            />
+          ) : null}
+        </LexicalCollaboration>
       </LexicalComposer>
     </div>
   );

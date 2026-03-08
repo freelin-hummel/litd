@@ -29,7 +29,7 @@ Development-only logs use grep-friendly prefixes:
 To verify deterministic room seeding:
 
 1. Open a document page that already has canonical content.
-2. Confirm the first open seeds the room.
+2. Confirm the first time you open it seeds the room.
 3. Reload the page.
 4. Confirm the room is reused instead of reseeded.
 

@@ -110,6 +110,8 @@ export function migratePageContentModel(value: unknown): unknown {
 
   return {
     ...migrated,
-    schemaVersion: schemaVersion < PAGE_CONTENT_SCHEMA_VERSION ? PAGE_CONTENT_SCHEMA_VERSION : schemaVersion,
+    // Preserve forward versions we do not yet understand so callers can decide
+    // how to handle newer persisted data instead of silently downgrading it.
+    schemaVersion: Math.max(schemaVersion, PAGE_CONTENT_SCHEMA_VERSION),
   };
 }
