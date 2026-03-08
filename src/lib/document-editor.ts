@@ -55,13 +55,15 @@ function isSerializedLexicalNode(value: unknown): value is SerializedLexicalNode
   return value !== null && typeof value === 'object' && typeof (value as { type?: unknown }).type === 'string';
 }
 
-function getStoredLexicalNode(block: BlockRecord | undefined): SerializedLexicalNode | null {
+function getStoredLexicalNode(
+  block: BlockRecord | undefined,
+): (SerializedLexicalNode & { type: string }) | null {
   const lexicalNode = block?.props.lexicalNode;
   if (!isSerializedLexicalNode(lexicalNode) || !block) {
     return null;
   }
 
-  return withSerializedLexicalNodeBlockId(lexicalNode, block.id);
+  return withSerializedLexicalNodeBlockId(lexicalNode, block.id) as SerializedLexicalNode & { type: string };
 }
 
 function createMatchedBlockRecord(
@@ -103,6 +105,19 @@ function shiftQueuedBlockId(queue: string[] | undefined, usedBlockIds: Set<strin
   return null;
 }
 
+function getIndexMatchedBlockId(
+  index: number,
+  previousRootBlockIds: string[],
+  usedBlockIds: Set<string>,
+): string | null {
+  const blockId = previousRootBlockIds[index];
+  if (!blockId || usedBlockIds.has(blockId)) {
+    return null;
+  }
+
+  return blockId;
+}
+
 function reconcileBlock(
   node: SerializedLexicalNode & { type: string },
   index: number,
@@ -128,9 +143,7 @@ function reconcileBlock(
 
   const indexMatch = explicitMatch || fingerprintMatch
     ? null
-    : previousRootBlockIds[index] && !usedBlockIds.has(previousRootBlockIds[index])
-      ? previousRootBlockIds[index]
-      : null;
+    : getIndexMatchedBlockId(index, previousRootBlockIds, usedBlockIds);
 
   const matchedBlockId = explicitMatch ?? fingerprintMatch ?? indexMatch;
   const nextBlockId = getReusableBlockId(matchedBlockId);
@@ -193,7 +206,7 @@ export function syncDocumentPageFromSerializedEditorState(
       return;
     }
 
-    const fingerprint = createLexicalNodeFingerprint(previousNode as SerializedLexicalNode & { type: string });
+    const fingerprint = createLexicalNodeFingerprint(previousNode);
     const queue = unusedBlockIdsByFingerprint.get(fingerprint);
     if (queue) {
       queue.push(blockId);

@@ -2,6 +2,7 @@ import type { SerializedLexicalNode } from 'lexical';
 
 const BLOCK_ID_FIELD = '__litdBlockId';
 const LEGACY_LEXICAL_BLOCK_ID_PREFIX = 'lexical-block:';
+let fallbackBlockIdSequence = 0;
 
 type SerializedLexicalNodeRecord = SerializedLexicalNode & {
   type: string;
@@ -13,7 +14,14 @@ function cloneLexicalNode<T extends SerializedLexicalNode>(node: T): T {
 }
 
 function createFallbackBlockId(): string {
-  return `block-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  fallbackBlockIdSequence += 1;
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+    const bytes = crypto.getRandomValues(new Uint8Array(16));
+    const randomHex = Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join('');
+    return `block-${randomHex}`;
+  }
+
+  return `block-${Date.now().toString(36)}-${fallbackBlockIdSequence.toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 export function createStableBlockId(): string {
