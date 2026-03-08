@@ -46,6 +46,13 @@ const TLDRAW_COMPONENTS = {
   QuickActions: DefaultQuickActions,
 } as const;
 
+const CANVAS_SAVE_DEBOUNCE_MS = 120;
+const CANVAS_CHECKPOINT_BADGE_LABEL = 'canonical checkpoint';
+
+function isCanvasEmpty(editor: CanvasMountedEditor): boolean {
+  return editor.getCurrentPageShapeIds().size === 0;
+}
+
 function CanvasEditor({
   doc,
   theme,
@@ -95,7 +102,7 @@ function CanvasEditor({
   return (
     <div className="editor-canvas-shell">
       <div className="editor-canvas-badge">
-        {workspace.modes.canvas.badgeLabel} · canonical checkpoint
+        {workspace.modes.canvas.badgeLabel} · {CANVAS_CHECKPOINT_BADGE_LABEL}
       </div>
       <Tldraw
         persistenceKey={`litd:tldraw:${doc.id}`}
@@ -105,10 +112,7 @@ function CanvasEditor({
           editorRef.current = mountedEditor;
           syncColorScheme(mountedEditor);
 
-          if (
-            canonicalSnapshot &&
-            mountedEditor.getCurrentPageShapeIds().size === 0
-          ) {
+          if (canonicalSnapshot && isCanvasEmpty(mountedEditor)) {
             mountedEditor.loadSnapshot(canonicalSnapshot);
           }
 
@@ -119,7 +123,7 @@ function CanvasEditor({
 
             saveTimeoutRef.current = window.setTimeout(() => {
               flushCanvasSnapshot(mountedEditor);
-            }, 120);
+            }, CANVAS_SAVE_DEBOUNCE_MS);
           });
 
           return () => {

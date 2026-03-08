@@ -5,7 +5,7 @@ import type { BlockId, BlockRecord } from './document-pages';
 export const CANVAS_SNAPSHOT_BLOCK_TYPE = 'tldraw.snapshot';
 
 function cloneSnapshot(snapshot: TLStoreSnapshot): TLStoreSnapshot {
-  return JSON.parse(JSON.stringify(snapshot)) as TLStoreSnapshot;
+  return structuredClone(snapshot);
 }
 
 export function getCanvasSnapshotBlockId(pageId: string): BlockId {
@@ -31,7 +31,7 @@ export function getCanvasSnapshotFromPage(
   page: StoredDocumentPage,
 ): TLStoreSnapshot | null {
   const snapshot = getCanvasSnapshotBlock(page)?.props.tldrawSnapshot;
-  if (snapshot === null || typeof snapshot !== 'object') {
+  if (!snapshot || typeof snapshot !== 'object') {
     return null;
   }
 

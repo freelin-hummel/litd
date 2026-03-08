@@ -226,7 +226,11 @@ export function syncDocumentPageFromSerializedEditorState(
     ...preservedNonLexicalBlocks,
     ...lexicalBlocks,
   };
-  const blockIdSet = new Set(Object.keys(nextBlocks));
+  // nextRootBlockIds only tracks active Lexical document blocks. Relation
+  // validity must consider both those Lexical blocks and preserved non-Lexical
+  // blocks such as canvas checkpoints that remain part of the canonical page
+  // model.
+  const validBlockIdSet = new Set(Object.keys(nextBlocks));
   const entityIdSet = new Set(Object.keys(page.model.entities));
   const reusedBlockCount = import.meta.env.DEV
     ? nextRootBlockIds.filter((blockId) => page.model.blocks[blockId]).length
@@ -244,7 +248,7 @@ export function syncDocumentPageFromSerializedEditorState(
       ...page.model,
       blocks: nextBlocks,
       rootBlockIds: nextRootBlockIds,
-      relations: pruneDanglingRelations(page.model.relations, blockIdSet, entityIdSet),
+      relations: pruneDanglingRelations(page.model.relations, validBlockIdSet, entityIdSet),
     },
   };
 }
