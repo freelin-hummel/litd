@@ -62,9 +62,11 @@ Deleted blocks are removed from `blocks` / `rootBlockIds`, and dangling relation
 
 ### Canvas ⇄ canonical content
 
-- Canvas is still transitional.
-- The runtime uses tldraw local persistence keyed by page id.
-- No canonical shared canvas projection is enforced yet, so canvas content is explicitly documented as local-only today.
+- Canvas is still transitional, but it is no longer completely outside the canonical model.
+- `src/lib/canvas-projection.ts` mirrors a tldraw store snapshot into a canonical `tldraw.snapshot` block.
+- The live runtime still uses tldraw local persistence keyed by page id.
+- When a canvas opens and the local runtime is empty, the canonical snapshot is used as a deterministic seed/checkpoint.
+- Document reconciliation preserves non-Lexical blocks, so switching renderers does not silently delete the stored canvas snapshot.
 
 ## Persistence boundaries and authority
 
@@ -121,6 +123,6 @@ A document page is considered correctly synced when:
 
 ## Known transitional gaps
 
-- Canvas mode is still local-only
+- Canvas mode is not yet realtime collaborative
 - Workspace shell metadata is still local-only
 - Shared page metadata beyond the document body is persisted canonically but is not yet transported collaboratively through Yjs

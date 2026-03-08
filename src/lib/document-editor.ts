@@ -67,6 +67,14 @@ function getStoredLexicalNode(block: BlockRecord | undefined): SerializedLexical
     : null;
 }
 
+function getPreservedNonLexicalBlocks(
+  blocks: Record<BlockId, BlockRecord>,
+): Record<BlockId, BlockRecord> {
+  return Object.fromEntries(
+    Object.entries(blocks).filter(([, block]) => getStoredLexicalNode(block) === null),
+  );
+}
+
 interface ExistingBlockCandidate {
   id: BlockId;
   index: number;
@@ -203,8 +211,9 @@ export function syncDocumentPageFromSerializedEditorState(
   const availableCandidates = new Map(
     buildExistingBlockCandidates(page).map((candidate) => [candidate.id, candidate]),
   );
+  const preservedNonLexicalBlocks = getPreservedNonLexicalBlocks(page.model.blocks);
   const nextRootBlockIds: BlockId[] = [];
-  const nextBlocks = Object.fromEntries(
+  const lexicalBlocks = Object.fromEntries(
     serializedChildren.map((node, index) => {
       const existingCandidate = resolveBlockIdentity(node, index, availableCandidates);
       const blockId = existingCandidate?.id ?? createStableBlockId();
@@ -213,7 +222,11 @@ export function syncDocumentPageFromSerializedEditorState(
       return [block.id, block];
     }),
   );
-  const blockIdSet = new Set(nextRootBlockIds);
+  const nextBlocks = {
+    ...preservedNonLexicalBlocks,
+    ...lexicalBlocks,
+  };
+  const blockIdSet = new Set(Object.keys(nextBlocks));
   const entityIdSet = new Set(Object.keys(page.model.entities));
   const reusedBlockCount = import.meta.env.DEV
     ? nextRootBlockIds.filter((blockId) => page.model.blocks[blockId]).length

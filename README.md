@@ -6,7 +6,7 @@ A collaborative knowledge workspace powered by [Lexical](https://lexical.dev/) a
 
 - **Rich document editing** via Lexical projected from a canonical `PageContentModel`
 - **Realtime document collaboration** via Yjs + Hocuspocus with `y-indexeddb` offline cache
-- **Freeform canvas mode** via tldraw with per-page local persistence
+- **Freeform canvas mode** via tldraw with local runtime plus canonical snapshot checkpoints
 - **Generic sidebar collections** with stored category metadata and page membership
 - **Editable workspace branding** for the shell title/subtitle plus document/canvas labels and badges
 - **Seeded generic workspace collections**:
@@ -21,7 +21,7 @@ A collaborative knowledge workspace powered by [Lexical](https://lexical.dev/) a
 This repo is partway through the broader "general knowledge workspace" plan.
 
 - Implemented today: generic shell vocabulary, seeded non-TTRPG collections, workspace/mode branding, category metadata persistence, a normalized shared page-content schema, stable document block identities, canonical document reconciliation, and active Lexical collaboration over Yjs/Hocuspocus.
-- Transitional today: canvas mode still uses tldraw's own local persistence keyed by page id, and workspace shell metadata remains local-only in browser storage.
+- Transitional today: canvas mode still uses tldraw's own local persistence keyed by page id, but now mirrors canonical snapshot checkpoints into `PageContentModel`; workspace shell metadata remains local-only in browser storage.
 - Not implemented yet: asset library UI/storage flows, PDF rendering/embed modes, pinned block surfaces, mechanics-aware blocks, faceted retrieval UX, and a fully shared canvas runtime over the same block graph.
 
 ## Themes
@@ -90,7 +90,7 @@ This shared model lives in `src/lib/document-pages.ts`, is migrated through `src
 
 - Lexical uses Yjs/Hocuspocus as the collaborative runtime, but `PageContentModel` remains the canonical persisted representation for document pages.
 - Top-level document blocks now keep stable non-positional ids, and matched blocks preserve metadata, entity ids, and surviving relations across normal edits.
-- Canvas still uses tldraw's own persisted state keyed by page id, so canvas collaboration is transitional and local-only today.
+- Canvas still uses tldraw's own persisted state keyed by page id, but canvas pages now mirror a canonical tldraw snapshot block into `PageContentModel` as a checkpoint bridge.
 - Categories remain one organizational projection, and their presentation metadata is persisted on each category record instead of being inferred from category ids in generic UI helpers.
 - `src/lib/block-registry.ts` defines the initial renderer-agnostic block registry seam for Lexical nodes and markdown behavior, with future hooks for canvas projection and richer block metadata.
 
@@ -154,7 +154,8 @@ Metadata semantics today:
 
 - **Collaborative/shared in realtime:** document body blocks for document-mode pages
 - **Eventually consistent local snapshot:** canonical `PageContentModel` persisted in the docs store
-- **Local-only today:** workspace title/subtitle, workspace mode labels, category presentation metadata, and canvas runtime state
+- **Local-only today:** workspace title/subtitle, workspace mode labels, category presentation metadata, and the live tldraw runtime state
+- **Canonical checkpoint today:** canvas pages mirror a tldraw snapshot into `PageContentModel`, which is used for seeding and mode-switch preservation but is not yet realtime collaborative
 
 For local development, run the collaboration server and Vite app in separate terminals:
 

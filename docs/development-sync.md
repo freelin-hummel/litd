@@ -53,6 +53,10 @@ Remove the relevant localStorage keys:
 
 Remove the relevant `litd:tldraw:<pageId>` local storage entry.
 
+Canvas pages now also mirror a canonical snapshot checkpoint into `litd:docs`, so clearing
+local tldraw state without clearing the docs store should cause an empty canvas to reseed from
+the canonical checkpoint on the next open.
+
 ## Extending document sync safely
 
 When adding or changing document blocks:

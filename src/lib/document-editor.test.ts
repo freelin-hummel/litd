@@ -260,6 +260,38 @@ describe('document editor model sync', () => {
     expect(secondSync.model.rootBlockIds).toEqual(firstSync.model.rootBlockIds);
     expect(secondSync.model.blocks).toEqual(firstSync.model.blocks);
   });
+
+  it('preserves non-lexical canonical blocks during document edits', () => {
+    const page = createDocumentPage({
+      id: 'doc-9',
+      title: 'Mixed',
+      mode: 'document',
+    });
+    page.model.blocks['canvas-snapshot:doc-9'] = {
+      id: 'canvas-snapshot:doc-9',
+      type: 'tldraw.snapshot',
+      props: {
+        tldrawSnapshot: { schema: { schemaVersion: 2, sequences: {} }, store: {} },
+      },
+      childIds: [],
+      entityIds: [],
+      metadata: {
+        tags: ['canvas'],
+        pinned: false,
+        customFields: {},
+        assetRefs: [],
+        mechanics: {},
+      },
+    };
+
+    const synced = syncDocumentPageFromSerializedEditorState(
+      page,
+      createSerializedEditorState('Document text'),
+    );
+
+    expect(synced.model.blocks['canvas-snapshot:doc-9']).toEqual(page.model.blocks['canvas-snapshot:doc-9']);
+    expect(synced.model.rootBlockIds).not.toContain('canvas-snapshot:doc-9');
+  });
 });
 
 describe('page content migrations', () => {

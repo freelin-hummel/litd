@@ -1,6 +1,11 @@
+import type { TLStoreSnapshot } from '@tldraw/editor';
 import { useCallback, useEffect, useRef } from 'react';
 import { DefaultQuickActions, Tldraw } from 'tldraw';
 import { Zap } from 'lucide-react';
+import {
+  getCanvasSnapshotFromPage,
+  syncCanvasSnapshotToPage,
+} from '../lib/canvas-projection';
 import type { ThemeId } from '../themes';
 import { getThemeMeta } from '../themes';
 import type { DocumentPage } from '../lib/document';
@@ -18,6 +23,12 @@ interface CanvasMountedEditor {
   user: {
     updateUserPreferences: (preferences: { colorScheme: 'light' | 'dark' }) => void;
   };
+  store: {
+    getStoreSnapshot: () => TLStoreSnapshot;
+    listen: (listener: () => void) => () => void;
+  };
+  getCurrentPageShapeIds: () => Set<string>;
+  loadSnapshot: (snapshot: TLStoreSnapshot) => void;
 }
 
 function DocumentEditor({
@@ -39,17 +50,31 @@ function CanvasEditor({
   doc,
   theme,
   workspace,
+  onPageChange,
 }: {
   doc: WorldDoc;
   theme: ThemeId;
   workspace: WorkspaceMetadata;
+  onPageChange: (page: DocumentPage) => void;
 }) {
   const colorScheme = getThemeMeta(theme).appearance;
   const editorRef = useRef<CanvasMountedEditor | null>(null);
+  const saveTimeoutRef = useRef<number | null>(null);
+  const pageRef = useRef(doc.page);
+  const canonicalSnapshot = getCanvasSnapshotFromPage(doc.page);
+
+  useEffect(() => {
+    pageRef.current = doc.page;
+  }, [doc.page]);
 
   const syncColorScheme = useCallback((editor: CanvasMountedEditor) => {
     editor.user.updateUserPreferences({ colorScheme });
   }, [colorScheme]);
+
+  const flushCanvasSnapshot = useCallback((editor: CanvasMountedEditor) => {
+    const nextPage = syncCanvasSnapshotToPage(pageRef.current, editor.store.getStoreSnapshot());
+    onPageChange(nextPage);
+  }, [onPageChange]);
 
   useEffect(() => {
     if (editorRef.current) {
@@ -57,17 +82,54 @@ function CanvasEditor({
     }
   }, [syncColorScheme]);
 
+  useEffect(
+    () => () => {
+      if (saveTimeoutRef.current !== null) {
+        window.clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
+    },
+    [],
+  );
+
   return (
     <div className="editor-canvas-shell">
       <div className="editor-canvas-badge">
-        {workspace.modes.canvas.badgeLabel} · local-only
+        {workspace.modes.canvas.badgeLabel} · canonical checkpoint
       </div>
       <Tldraw
         persistenceKey={`litd:tldraw:${doc.id}`}
         components={TLDRAW_COMPONENTS}
         onMount={(editor) => {
-          editorRef.current = editor as CanvasMountedEditor;
-          syncColorScheme(editor as CanvasMountedEditor);
+          const mountedEditor = editor as CanvasMountedEditor;
+          editorRef.current = mountedEditor;
+          syncColorScheme(mountedEditor);
+
+          if (
+            canonicalSnapshot &&
+            mountedEditor.getCurrentPageShapeIds().size === 0
+          ) {
+            mountedEditor.loadSnapshot(canonicalSnapshot);
+          }
+
+          const dispose = mountedEditor.store.listen(() => {
+            if (saveTimeoutRef.current !== null) {
+              window.clearTimeout(saveTimeoutRef.current);
+            }
+
+            saveTimeoutRef.current = window.setTimeout(() => {
+              flushCanvasSnapshot(mountedEditor);
+            }, 120);
+          });
+
+          return () => {
+            if (saveTimeoutRef.current !== null) {
+              window.clearTimeout(saveTimeoutRef.current);
+              saveTimeoutRef.current = null;
+            }
+            flushCanvasSnapshot(mountedEditor);
+            dispose();
+          };
         }}
       />
     </div>
@@ -91,7 +153,13 @@ export function Editor({ doc, theme, workspace, onDocumentPageChange }: EditorPr
 
   return (
     doc.mode === 'canvas' ? (
-      <CanvasEditor key={doc.id} doc={doc} theme={theme} workspace={workspace} />
+      <CanvasEditor
+        key={doc.id}
+        doc={doc}
+        theme={theme}
+        workspace={workspace}
+        onPageChange={(page) => onDocumentPageChange(doc.id, page)}
+      />
     ) : (
       <DocumentEditor
         key={doc.id}
