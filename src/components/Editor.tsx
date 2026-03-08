@@ -59,7 +59,9 @@ function CanvasEditor({
 
   return (
     <div className="editor-canvas-shell">
-      <div className="editor-canvas-badge">{workspace.modes.canvas.badgeLabel}</div>
+      <div className="editor-canvas-badge">
+        {workspace.modes.canvas.badgeLabel} · local-only
+      </div>
       <Tldraw
         persistenceKey={`litd:tldraw:${doc.id}`}
         components={TLDRAW_COMPONENTS}

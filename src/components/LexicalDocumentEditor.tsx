@@ -9,6 +9,7 @@ import {
   INSERT_UNORDERED_LIST_COMMAND,
 } from '@lexical/list';
 import { ContentEditable } from '@lexical/react/LexicalContentEditable';
+import { CollaborationPlugin } from '@lexical/react/LexicalCollaborationPlugin';
 import type { InitialConfigType } from '@lexical/react/LexicalComposer';
 import { LexicalComposer } from '@lexical/react/LexicalComposer';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
@@ -41,6 +42,19 @@ import type { MutableRefObject } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
+  createLexicalProviderFactory,
+  deriveSyncStatusFromProviderStatus,
+  getCollaborationParticipantCount,
+  markRoomSeeded,
+  readRoomSeedMetadata,
+  resolveRoomSeedResolution,
+  type DocumentSyncStatus,
+} from '../lib/collaboration';
+import {
+  getCollaborationSession,
+  releaseCollaborationSession,
+} from '../lib/collection';
+import {
   getRegisteredLexicalNodes,
   getRegisteredMarkdownTransformers,
 } from '../lib/block-registry';
@@ -49,6 +63,7 @@ import {
   createLexicalInitialEditorState,
   syncDocumentPageFromSerializedEditorState,
 } from '../lib/document-editor';
+import { logSyncDebug } from '../lib/sync-debug';
 
 const URL_MATCHERS = [
   createLinkMatcherWithRegExp(
@@ -248,6 +263,9 @@ export function LexicalDocumentEditor({
   page,
   onPageChange,
 }: LexicalDocumentEditorProps) {
+  const [session, setSession] = useState<ReturnType<typeof getCollaborationSession> | null>(null);
+  const [syncStatus, setSyncStatus] = useState<DocumentSyncStatus>('connecting');
+  const [participantCount, setParticipantCount] = useState(0);
   const [anchorElem, setAnchorElem] = useState<HTMLElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const targetLineRef = useRef<HTMLDivElement | null>(null);
@@ -257,17 +275,89 @@ export function LexicalDocumentEditor({
     const serializedEditorState = createLexicalInitialEditorState(page);
     return serializedEditorState ? JSON.stringify(serializedEditorState) : undefined;
   }, [page]);
+  const seedResolution = useMemo(
+    () => (session ? resolveRoomSeedResolution(session.doc, page) : null),
+    [page, session],
+  );
+  const providerFactory = useMemo(
+    () => (session ? createLexicalProviderFactory(session) : null),
+    [session],
+  );
   const pageRef = useRef(page);
   const signatureRef = useRef(initialEditorState ?? '');
+
+  useEffect(() => {
+    const activeSession = getCollaborationSession(docId);
+    setSession(activeSession);
+    setSyncStatus('connecting');
+    setParticipantCount(getCollaborationParticipantCount(activeSession));
+    logSyncDebug('collaboration', 'session acquired', { docId });
+
+    return () => {
+      logSyncDebug('collaboration', 'session released', { docId });
+      releaseCollaborationSession(docId);
+      setSession(null);
+    };
+  }, [docId]);
 
   useEffect(() => {
     pageRef.current = page;
     signatureRef.current = initialEditorState ?? '';
   }, [page, initialEditorState]);
 
+  useEffect(() => {
+    if (!session || !seedResolution) {
+      return;
+    }
+
+    const handleStatus = ({ status }: { status: string }) => {
+      setSyncStatus((previous) => deriveSyncStatusFromProviderStatus(previous, status));
+      setParticipantCount(getCollaborationParticipantCount(session));
+      logSyncDebug('collaboration', 'provider status', { docId, status });
+    };
+    const handleSync = (isSynced: boolean) => {
+      setSyncStatus(isSynced ? 'synced' : 'syncing');
+      setParticipantCount(getCollaborationParticipantCount(session));
+      if (
+        isSynced &&
+        seedResolution.shouldBootstrap &&
+        !readRoomSeedMetadata(session.doc)
+      ) {
+        markRoomSeeded(session.doc, 'canonical');
+      }
+      logSyncDebug('collaboration', 'provider sync', {
+        docId,
+        isSynced,
+        seedReason: seedResolution.reason,
+      });
+    };
+    const handleAwarenessUpdate = () => {
+      setParticipantCount(getCollaborationParticipantCount(session));
+    };
+    const handleUpdate = () => {
+      logSyncDebug('collaboration', 'provider update', { docId });
+    };
+    const handleReload = () => {
+      logSyncDebug('collaboration', 'provider reload', { docId });
+    };
+
+    session.provider.on('status', handleStatus);
+    session.provider.on('sync', handleSync);
+    session.provider.on('update', handleUpdate);
+    session.provider.on('reload', handleReload);
+    session.provider.awareness.on('update', handleAwarenessUpdate);
+
+    return () => {
+      session.provider.off('status', handleStatus);
+      session.provider.off('sync', handleSync);
+      session.provider.off('update', handleUpdate);
+      session.provider.off('reload', handleReload);
+      session.provider.awareness.off('update', handleAwarenessUpdate);
+    };
+  }, [docId, seedResolution, session]);
+
   const initialConfig = useMemo<InitialConfigType>(
     () => ({
-      editorState: initialEditorState ?? undefined,
       namespace: 'litd-document-editor',
       nodes: registeredLexicalNodes,
       onError: (error: Error) => {
@@ -278,7 +368,7 @@ export function LexicalDocumentEditor({
         throw contextualError;
       },
     }),
-    [docId, initialEditorState, registeredLexicalNodes],
+    [docId, registeredLexicalNodes],
   );
 
   const handleChange = useCallback(
@@ -302,9 +392,41 @@ export function LexicalDocumentEditor({
     setAnchorElem(element);
   }, []);
 
+  if (!session || !providerFactory || !seedResolution) {
+    return <div className="editor-loading">Opening collaboration session…</div>;
+  }
+
+  const syncStatusLabel =
+    syncStatus === 'connecting'
+      ? 'Connecting'
+      : syncStatus === 'syncing'
+        ? 'Syncing'
+        : syncStatus === 'synced'
+          ? 'Synced'
+          : syncStatus === 'offline'
+            ? 'Offline cache'
+            : syncStatus === 'reconnecting'
+              ? 'Reconnecting'
+              : 'Sync error';
+
   return (
     <div className="editor-document-shell">
+      <div className="editor-document-status-bar">
+        <span className="editor-sync-indicator" data-status={syncStatus}>
+          {syncStatusLabel}
+        </span>
+        <span className="editor-sync-meta">
+          {participantCount} collaborator{participantCount === 1 ? '' : 's'}
+        </span>
+      </div>
       <LexicalComposer initialConfig={initialConfig}>
+        <CollaborationPlugin
+          id={docId}
+          providerFactory={providerFactory}
+          shouldBootstrap={seedResolution.shouldBootstrap}
+          initialEditorState={initialEditorState}
+          awarenessData={{ docId, pageId: page.model.page.id, mode: 'document' }}
+        />
         <RichTextPlugin
           contentEditable={<ContentEditable className="editor-document-content ContentEditable__root" ref={handleAnchorRef} />}
           placeholder={null}

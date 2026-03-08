@@ -1,3 +1,8 @@
+import {
+  PAGE_CONTENT_SCHEMA_VERSION,
+  migratePageContentModel,
+} from './page-content-migrations';
+
 export type PageId = string;
 
 export type EditorMode = 'document' | 'canvas';
@@ -50,8 +55,6 @@ export interface AssetRecord {
   tags: string[];
   metadata: Record<string, unknown>;
 }
-
-export const PAGE_CONTENT_SCHEMA_VERSION = 1;
 
 /**
  * Canonical page metadata shared by every renderer.
@@ -304,11 +307,13 @@ export function normalizePageContentModel(
   fallbackPage: DocumentPage,
   options: PageContentModelOptions = {},
 ): PageContentModel {
-  if (value === null || typeof value !== 'object') {
+  const migratedValue = migratePageContentModel(value);
+
+  if (migratedValue === null || typeof migratedValue !== 'object') {
     return createPageContentModel(fallbackPage, options);
   }
 
-  const record = value as Record<string, unknown>;
+  const record = migratedValue as Record<string, unknown>;
   const storedPage =
     record.page !== null && typeof record.page === 'object'
       ? (record.page as Record<string, unknown>)
