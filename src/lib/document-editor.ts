@@ -2,6 +2,13 @@ import type { ComponentType } from 'react';
 import type { SerializedEditorState, SerializedLexicalNode } from 'lexical';
 import type { DocumentPage as StoredDocumentPage } from './document';
 import type { BlockRecord, DocumentPage } from './document-pages';
+import {
+  createLexicalNodeFingerprint,
+  createStableBlockId,
+  getSerializedLexicalNodeBlockId,
+  isLegacyPositionalBlockId,
+  withSerializedLexicalNodeBlockId,
+} from './block-identity';
 
 export interface DocumentEditorSurfaceProps {
   page: DocumentPage;
@@ -22,21 +29,15 @@ export interface DocumentEditorBoundary {
   Surface: ComponentType<DocumentEditorSurfaceProps>;
 }
 
-const LEXICAL_BLOCK_ID_PREFIX = 'lexical-block';
-
-function createLexicalBlockId(index: number): string {
-  return `${LEXICAL_BLOCK_ID_PREFIX}:${index}`;
-}
-
 function createDefaultBlockRecord(
-  index: number,
+  blockId: string,
   node: SerializedLexicalNode & { type: string },
 ): BlockRecord {
   return {
-    id: createLexicalBlockId(index),
+    id: blockId,
     type: node.type,
     props: {
-      lexicalNode: JSON.parse(JSON.stringify(node)) as SerializedLexicalNode,
+      lexicalNode: withSerializedLexicalNodeBlockId(node, blockId),
     },
     childIds: [],
     entityIds: [],
@@ -54,11 +55,105 @@ function isSerializedLexicalNode(value: unknown): value is SerializedLexicalNode
   return value !== null && typeof value === 'object' && typeof (value as { type?: unknown }).type === 'string';
 }
 
-function getStoredLexicalNode(block: BlockRecord | undefined): SerializedLexicalNode | null {
+function getStoredLexicalNode(
+  block: BlockRecord | undefined,
+): (SerializedLexicalNode & { type: string }) | null {
   const lexicalNode = block?.props.lexicalNode;
-  return isSerializedLexicalNode(lexicalNode)
-    ? (JSON.parse(JSON.stringify(lexicalNode)) as SerializedLexicalNode)
-    : null;
+  if (!isSerializedLexicalNode(lexicalNode) || !block) {
+    return null;
+  }
+
+  return withSerializedLexicalNodeBlockId(lexicalNode, block.id) as SerializedLexicalNode & { type: string };
+}
+
+function createMatchedBlockRecord(
+  existingBlock: BlockRecord,
+  node: SerializedLexicalNode & { type: string },
+  blockId: string,
+): BlockRecord {
+  return {
+    ...existingBlock,
+    id: blockId,
+    type: node.type,
+    props: {
+      ...existingBlock.props,
+      lexicalNode: withSerializedLexicalNodeBlockId(node, blockId),
+    },
+  };
+}
+
+function getReusableBlockId(existingBlockId: string | null): string {
+  if (!existingBlockId || isLegacyPositionalBlockId(existingBlockId)) {
+    return createStableBlockId();
+  }
+
+  return existingBlockId;
+}
+
+function shiftQueuedBlockId(queue: string[] | undefined, usedBlockIds: Set<string>): string | null {
+  if (!queue) {
+    return null;
+  }
+
+  while (queue.length > 0) {
+    const blockId = queue.shift();
+    if (blockId && !usedBlockIds.has(blockId)) {
+      return blockId;
+    }
+  }
+
+  return null;
+}
+
+function getIndexMatchedBlockId(
+  index: number,
+  previousRootBlockIds: string[],
+  usedBlockIds: Set<string>,
+): string | null {
+  const blockId = previousRootBlockIds[index];
+  if (!blockId || usedBlockIds.has(blockId)) {
+    return null;
+  }
+
+  return blockId;
+}
+
+function reconcileBlock(
+  node: SerializedLexicalNode & { type: string },
+  index: number,
+  previousRootBlockIds: string[],
+  previousBlocks: Record<string, BlockRecord>,
+  unusedBlockIdsByFingerprint: Map<string, string[]>,
+  usedBlockIds: Set<string>,
+): BlockRecord {
+  const serializedBlockId = getSerializedLexicalNodeBlockId(node);
+  const explicitMatch =
+    serializedBlockId &&
+    previousBlocks[serializedBlockId] &&
+    !usedBlockIds.has(serializedBlockId)
+      ? serializedBlockId
+      : null;
+
+  const fingerprintMatch = explicitMatch
+    ? null
+    : shiftQueuedBlockId(
+        unusedBlockIdsByFingerprint.get(createLexicalNodeFingerprint(node)),
+        usedBlockIds,
+      );
+
+  const indexMatch = explicitMatch || fingerprintMatch
+    ? null
+    : getIndexMatchedBlockId(index, previousRootBlockIds, usedBlockIds);
+
+  const matchedBlockId = explicitMatch ?? fingerprintMatch ?? indexMatch;
+  const nextBlockId = getReusableBlockId(matchedBlockId);
+
+  if (matchedBlockId) {
+    usedBlockIds.add(matchedBlockId);
+    return createMatchedBlockRecord(previousBlocks[matchedBlockId], node, nextBlockId);
+  }
+
+  return createDefaultBlockRecord(nextBlockId, node);
 }
 
 export function createLexicalInitialEditorState(
@@ -96,19 +191,52 @@ export function syncDocumentPageFromSerializedEditorState(
     ? serializedEditorState.root.children.filter(isSerializedLexicalNode)
     : [];
 
-  const nextBlocks = Object.fromEntries(
-    serializedChildren.map((node, index) => {
-      const block = createDefaultBlockRecord(index, node);
-      return [block.id, block];
-    }),
+  const previousRootBlockIds = page.model.rootBlockIds;
+  const previousBlocks = page.model.blocks;
+  const nonRootBlocks = Object.fromEntries(
+    Object.entries(previousBlocks).filter(([blockId]) => !previousRootBlockIds.includes(blockId)),
   );
+  const unusedBlockIdsByFingerprint = new Map<string, string[]>();
+  const usedBlockIds = new Set<string>();
+
+  previousRootBlockIds.forEach((blockId) => {
+    const previousBlock = previousBlocks[blockId];
+    const previousNode = getStoredLexicalNode(previousBlock);
+    if (!previousNode) {
+      return;
+    }
+
+    const fingerprint = createLexicalNodeFingerprint(previousNode);
+    const queue = unusedBlockIdsByFingerprint.get(fingerprint);
+    if (queue) {
+      queue.push(blockId);
+      return;
+    }
+
+    unusedBlockIdsByFingerprint.set(fingerprint, [blockId]);
+  });
+
+  const reconciledBlocks = serializedChildren.map((node, index) =>
+    reconcileBlock(
+      node,
+      index,
+      previousRootBlockIds,
+      previousBlocks,
+      unusedBlockIdsByFingerprint,
+      usedBlockIds,
+    )
+  );
+  const nextBlocks = {
+    ...nonRootBlocks,
+    ...Object.fromEntries(reconciledBlocks.map((block) => [block.id, block])),
+  };
 
   return {
     ...page,
     model: {
       ...page.model,
       blocks: nextBlocks,
-      rootBlockIds: serializedChildren.map((_, index) => createLexicalBlockId(index)),
+      rootBlockIds: reconciledBlocks.map((block) => block.id),
     },
   };
 }
