@@ -119,6 +119,29 @@ Environment variables:
 - `VITE_HOCUSPOCUS_URL` points the web app at a different Hocuspocus endpoint
 - `VITE_HOCUSPOCUS_TOKEN` sends the matching client token when auth is enabled
 
+## OpenSpec workflow
+
+This repository is initialized for [OpenSpec](https://github.com/Fission-AI/OpenSpec) with GitHub Copilot prompt/skill files in `.github/` and baseline specs in `openspec/specs/`.
+
+Recommended local setup:
+
+```bash
+npm install -g @fission-ai/openspec@latest
+openspec update
+```
+
+Once installed, restart your IDE so the generated GitHub Copilot slash commands are available:
+
+- `/opsx:propose` — create a change proposal and planning artifacts
+- `/opsx:explore` — investigate ideas before opening a change
+- `/opsx:apply` — implement the tasks for an existing change
+- `/opsx:archive` — merge/archive a completed change
+
+Project spec artifacts live in:
+
+- `openspec/specs/` — current source-of-truth behavior specs
+- `openspec/changes/` — proposed changes and implementation plans
+
 ## Tech Stack
 
 | Layer | Technology |
