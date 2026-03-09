@@ -433,6 +433,46 @@ body {
   padding: 16px 12px 48px;
 }
 
+.editor-document-status-bar {
+  max-width: 720px;
+  margin: 0 auto 10px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  color: var(--theme-text-muted);
+  font-family: var(--font-ui);
+  font-size: 11px;
+}
+
+.editor-sync-indicator {
+  border: 1px solid var(--theme-border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--theme-surface-elevated) 88%, transparent);
+  color: var(--theme-text-muted);
+  padding: 4px 8px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.editor-sync-indicator[data-status='synced'] {
+  color: var(--theme-accent);
+}
+
+.editor-sync-indicator[data-status='offline'],
+.editor-sync-indicator[data-status='reconnecting'] {
+  color: color-mix(in srgb, var(--theme-text) 82%, var(--theme-app-background));
+}
+
+.editor-sync-indicator[data-status='error'] {
+  color: var(--theme-danger);
+}
+
+.editor-sync-meta {
+  white-space: nowrap;
+}
+
 .editor-document-actions {
   display: flex;
   justify-content: flex-end;

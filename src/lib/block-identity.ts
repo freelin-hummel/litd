@@ -1,7 +1,7 @@
 import type { SerializedLexicalNode } from 'lexical';
 
 const BLOCK_ID_FIELD = '__litdBlockId';
-const LEGACY_LEXICAL_BLOCK_ID_PREFIX = 'lexical-block:';
+const LEGACY_POSITIONAL_BLOCK_ID_PREFIX = 'lexical-block:';
 let fallbackBlockIdSequence = 0;
 
 type SerializedLexicalNodeRecord = SerializedLexicalNode & {
@@ -33,7 +33,7 @@ export function createStableBlockId(): string {
 }
 
 export function isLegacyPositionalBlockId(blockId: string): boolean {
-  return blockId.startsWith(LEGACY_LEXICAL_BLOCK_ID_PREFIX);
+  return blockId.startsWith(LEGACY_POSITIONAL_BLOCK_ID_PREFIX);
 }
 
 export function getSerializedLexicalNodeBlockId(
@@ -55,10 +55,41 @@ export function withSerializedLexicalNodeBlockId(
   return stampedNode as SerializedLexicalNode;
 }
 
+function normalizeLexicalNodeForIdentity(
+  value: unknown,
+  stripTextContent: boolean,
+): unknown {
+  if (Array.isArray(value)) {
+    return value.map((entry) => normalizeLexicalNodeForIdentity(entry, stripTextContent));
+  }
+
+  if (value === null || typeof value !== 'object') {
+    return value;
+  }
+
+  const record = value as Record<string, unknown>;
+  const normalizedEntries = Object.entries(record)
+    .filter(([key]) => key !== '__key' && key !== BLOCK_ID_FIELD)
+    .map(([key, entry]): [string, unknown] => {
+      if (stripTextContent && key === 'text') {
+        return [key, ''];
+      }
+
+      return [key, normalizeLexicalNodeForIdentity(entry, stripTextContent)];
+    })
+    .sort(([left], [right]) => left.localeCompare(right));
+
+  return Object.fromEntries(normalizedEntries);
+}
+
 export function createLexicalNodeFingerprint(
   node: SerializedLexicalNode & { type: string },
 ): string {
-  const clonedNode = cloneLexicalNode(node) as SerializedLexicalNodeRecord;
-  delete clonedNode[BLOCK_ID_FIELD];
-  return JSON.stringify(clonedNode);
+  return JSON.stringify(normalizeLexicalNodeForIdentity(node, false));
+}
+
+export function createLexicalNodeStructureFingerprint(
+  node: SerializedLexicalNode & { type: string },
+): string {
+  return JSON.stringify(normalizeLexicalNodeForIdentity(node, true));
 }

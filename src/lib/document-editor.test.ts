@@ -6,64 +6,35 @@ import {
   createLexicalInitialEditorState,
   syncDocumentPageFromSerializedEditorState,
 } from './document-editor';
+import { normalizePageContentModel } from './document-pages';
 
-function createSerializedEditorState(text: string): SerializedEditorState {
+function createParagraphNode(text: string) {
   return {
-    root: {
-      children: [
-        {
-          children: [
-            {
-              detail: 0,
-              format: 0,
-              mode: 'normal',
-              style: '',
-              text,
-              type: 'text',
-              version: 1,
-            },
-          ],
-          direction: null,
-          format: '',
-          indent: 0,
-          textFormat: 0,
-          textStyle: '',
-          type: 'paragraph',
-          version: 1,
-        },
-      ],
-      direction: null,
-      format: '',
-      indent: 0,
-      type: 'root',
-      version: 1,
-    },
-  } as unknown as SerializedEditorState;
+    children: [
+      {
+        detail: 0,
+        format: 0,
+        mode: 'normal',
+        style: '',
+        text,
+        type: 'text',
+        version: 1,
+      },
+    ],
+    direction: null,
+    format: '',
+    indent: 0,
+    textFormat: 0,
+    textStyle: '',
+    type: 'paragraph',
+    version: 1,
+  };
 }
 
-function createSerializedEditorStateFromParagraphs(...texts: string[]): SerializedEditorState {
+function createSerializedEditorState(...texts: string[]): SerializedEditorState {
   return {
     root: {
-      children: texts.map((text) => ({
-        children: [
-          {
-            detail: 0,
-            format: 0,
-            mode: 'normal',
-            style: '',
-            text,
-            type: 'text',
-            version: 1,
-          },
-        ],
-        direction: null,
-        format: '',
-        indent: 0,
-        textFormat: 0,
-        textStyle: '',
-        type: 'paragraph',
-        version: 1,
-      })),
+      children: texts.map((text) => createParagraphNode(text)),
       direction: null,
       format: '',
       indent: 0,
@@ -201,7 +172,7 @@ describe('document editor model sync', () => {
     expect(secondBlock.props.extra).toBe('preserved');
   });
 
-  it('keeps block ids stable when blocks reorder with unchanged content', () => {
+  it('keeps block ids stable when unchanged blocks are reordered', () => {
     const page = createDocumentPage({
       id: 'doc-5',
       title: 'Notes',
@@ -210,13 +181,13 @@ describe('document editor model sync', () => {
 
     const initialSync = syncDocumentPageFromSerializedEditorState(
       page,
-      createSerializedEditorStateFromParagraphs('First', 'Second'),
+      createSerializedEditorState('First', 'Second'),
     );
     const [firstId, secondId] = initialSync.model.rootBlockIds;
 
     const reorderedSync = syncDocumentPageFromSerializedEditorState(
       initialSync,
-      createSerializedEditorStateFromParagraphs('Second', 'First'),
+      createSerializedEditorState('Second', 'First'),
     );
 
     expect(reorderedSync.model.rootBlockIds).toEqual([secondId, firstId]);
@@ -234,7 +205,7 @@ describe('document editor model sync', () => {
       id: 'lexical-block:0',
       type: 'paragraph',
       props: {
-        lexicalNode: createSerializedEditorState('Legacy').root.children[0],
+        lexicalNode: createParagraphNode('Legacy'),
       },
       childIds: [],
       entityIds: ['entity-legacy'],
@@ -260,7 +231,7 @@ describe('document editor model sync', () => {
     expect(migrated.model.blocks['lexical-block:0']).toBeUndefined();
   });
 
-  it('removes deleted top-level blocks cleanly while preserving unrelated records', () => {
+  it('removes deleted blocks and prunes dangling relations', () => {
     const page = createDocumentPage({
       id: 'doc-7',
       title: 'Notes',
@@ -269,8 +240,9 @@ describe('document editor model sync', () => {
 
     const initialSync = syncDocumentPageFromSerializedEditorState(
       page,
-      createSerializedEditorStateFromParagraphs('Keep', 'Delete'),
+      createSerializedEditorState('Keep', 'Delete'),
     );
+    const [keepId, deleteId] = initialSync.model.rootBlockIds;
     initialSync.model.blocks['nested-block'] = {
       id: 'nested-block',
       type: 'callout',
@@ -285,34 +257,129 @@ describe('document editor model sync', () => {
         mechanics: {},
       },
     };
+    initialSync.model.relations = {
+      'relation-1': {
+        id: 'relation-1',
+        sourceId: keepId,
+        targetId: deleteId,
+        type: 'reference',
+        metadata: {},
+      },
+    };
 
     const nextSync = syncDocumentPageFromSerializedEditorState(
       initialSync,
       createSerializedEditorState('Keep'),
     );
 
-    expect(nextSync.model.rootBlockIds).toHaveLength(1);
+    expect(nextSync.model.rootBlockIds).toEqual([keepId]);
+    expect(nextSync.model.blocks[deleteId]).toBeUndefined();
     expect(nextSync.model.blocks['nested-block']).toBeDefined();
-    expect(
-      Object.keys(nextSync.model.blocks).filter((blockId) => blockId !== 'nested-block'),
-    ).toEqual(nextSync.model.rootBlockIds);
+    expect(nextSync.model.relations).toEqual({});
+  });
+
+  it('preserves non-lexical canonical blocks during document edits', () => {
+    const page = createDocumentPage({
+      id: 'doc-8',
+      title: 'Mixed',
+      mode: 'document',
+    });
+    page.model.blocks['canvas-snapshot:doc-8'] = {
+      id: 'canvas-snapshot:doc-8',
+      type: 'tldraw.snapshot',
+      props: {
+        tldrawSnapshot: { schema: { schemaVersion: 2, sequences: {} }, store: {} },
+      },
+      childIds: [],
+      entityIds: [],
+      metadata: {
+        tags: ['canvas'],
+        pinned: false,
+        customFields: {},
+        assetRefs: [],
+        mechanics: {},
+      },
+    };
+    page.model.rootBlockIds = ['canvas-snapshot:doc-8'];
+
+    const synced = syncDocumentPageFromSerializedEditorState(
+      page,
+      createSerializedEditorState('Document text'),
+    );
+
+    expect(synced.model.blocks['canvas-snapshot:doc-8']).toEqual(page.model.blocks['canvas-snapshot:doc-8']);
+    expect(synced.model.rootBlockIds).not.toContain('canvas-snapshot:doc-8');
   });
 
   it('does not drift across canonical to editor to canonical cycles', () => {
     const page = createDocumentPage({
-      id: 'doc-8',
+      id: 'doc-9',
       title: 'Notes',
       mode: 'document',
     });
 
     const firstSync = syncDocumentPageFromSerializedEditorState(
       page,
-      createSerializedEditorStateFromParagraphs('Alpha', 'Beta'),
+      createSerializedEditorState('Alpha', 'Beta'),
     );
     const reconstructed = createLexicalInitialEditorState(firstSync);
     expect(reconstructed).not.toBeNull();
 
     const secondSync = syncDocumentPageFromSerializedEditorState(firstSync, reconstructed!);
     expect(secondSync.model).toEqual(firstSync.model);
+  });
+});
+
+describe('page content migrations', () => {
+  it('migrates legacy positional block ids to stable ids', () => {
+    const normalized = normalizePageContentModel(
+      {
+        schemaVersion: 1,
+        page: {
+          id: 'doc-legacy',
+          title: 'Legacy',
+          mode: 'document',
+          categoryIds: [],
+          sortIndex: 0,
+          metadata: {
+            tags: [],
+            pinned: false,
+            customFields: {},
+            assetIds: [],
+            grouping: {},
+          },
+        },
+        blocks: {
+          'lexical-block:0': {
+            id: 'lexical-block:0',
+            type: 'paragraph',
+            props: { lexicalNode: createParagraphNode('Legacy') },
+            childIds: [],
+            entityIds: [],
+            metadata: {
+              tags: ['legacy'],
+              pinned: false,
+              customFields: {},
+              assetRefs: [],
+              mechanics: {},
+            },
+          },
+        },
+        rootBlockIds: ['lexical-block:0'],
+        entities: {},
+        relations: {},
+        assets: {},
+      },
+      {
+        id: 'doc-legacy',
+        title: 'Legacy',
+        mode: 'document',
+      },
+    );
+
+    expect(normalized.schemaVersion).toBeGreaterThanOrEqual(2);
+    expect(normalized.rootBlockIds).toHaveLength(1);
+    expect(normalized.rootBlockIds[0]).toMatch(/^block-/);
+    expect(normalized.blocks[normalized.rootBlockIds[0]]?.metadata.tags).toEqual(['legacy']);
   });
 });

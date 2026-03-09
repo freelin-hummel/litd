@@ -1,34 +1,79 @@
-# Development Sync Notes
+# Development sync workflows
 
-Use these rules when changing sync-sensitive code.
+## Running the app and collaboration server
 
-## Document block identity
+```bash
+npm install
+npm run hocuspocus:dev
+npm run dev
+```
 
-- `src/lib/block-identity.ts` owns stable block id helpers for the document projection layer.
-- Do not derive canonical block ids from array position.
-- When reconciling editor output, preserve the existing block id for matched blocks and generate a new id only for genuinely new blocks.
-- If you encounter a legacy positional id, migrate it to a stable id while preserving metadata and references.
+Open two browser tabs to the same document page id to verify realtime document sync.
 
-## Document projection changes
+## Inspecting sync status
 
-- `src/lib/document-editor.ts` is the boundary between Lexical and `PageContentModel`.
-- Keep Lexical-specific data inside `block.props.lexicalNode`.
-- Preserve `metadata`, `entityIds`, `childIds`, and any non-Lexical block props for matched blocks.
-- If you add a new top-level block behavior, extend the reconciliation tests in `src/lib/document-editor.test.ts`.
+Document mode exposes:
 
-## Required test coverage for document sync changes
+- connection / sync state
+- offline-cache fallback state
+- awareness-based collaborator count
 
-At minimum, keep coverage for:
+Development-only logs use grep-friendly prefixes:
 
-- stable ids after text edits
-- stable ids after reordering where deterministic matching is possible
-- metadata preservation across edits
-- deletion cleanup
-- canonical → Lexical → canonical round-trips without drift
-- legacy positional id migration
+- `[litd:sync:collaboration]`
+- `[litd:sync:document]`
+- `[litd:sync:migration]`
 
-## Current local-vs-shared boundaries
+## Testing seeding behavior
 
-- Document canonical snapshots are persisted with page data.
-- Workspace shell metadata and canvas scene data are still local-only.
-- Collaboration helpers exist, but document-mode collaboration mounting is still a follow-on task, so documentation and code changes must not imply active remote sync unless that integration is actually added.
+To verify deterministic room seeding:
+
+1. Open a document page that already has canonical content.
+2. Confirm the first time you open it seeds the room.
+3. Reload the page.
+4. Confirm the room is reused instead of reseeded.
+
+The seed marker is stored inside the Yjs document metadata map.
+
+## Clearing persistence layers separately
+
+### Clear collaborative IndexedDB cache only
+
+Use the browser devtools Application tab and remove the IndexedDB database used by `y-indexeddb`.
+
+### Clear local app shell state only
+
+Remove the relevant localStorage keys:
+
+- `litd:docs`
+- `litd:categories`
+- `litd:workspace`
+
+### Reset local canvas state only
+
+Remove the relevant `litd:tldraw:<pageId>` local storage entry.
+
+Canvas pages now also mirror a canonical snapshot checkpoint into `litd:docs`, so clearing
+local tldraw state without clearing the docs store should cause an empty canvas to reseed from
+the canonical checkpoint on the next open.
+
+## Extending document sync safely
+
+When adding or changing document blocks:
+
+1. Keep `PageContentModel` canonical.
+2. Preserve existing block ids whenever a block still represents the same logical unit.
+3. Preserve existing `metadata` and `entityIds` for matched blocks.
+4. Add or update migration coverage if persistence format changes.
+5. Add round-trip tests for canonical → editor → canonical stability.
+
+## Required test coverage for sync-related changes
+
+At minimum, sync changes should validate:
+
+- block id stability across edits
+- metadata preservation
+- clean deletion behavior
+- canonical reconstruction of Lexical state
+- collaboration seeding rules
+- status mapping or lifecycle behavior when applicable
