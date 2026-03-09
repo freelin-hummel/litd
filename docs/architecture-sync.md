@@ -1,79 +1,128 @@
-# Sync Architecture
-
-This document defines the repository's current sync contract and the transitional boundaries that still need follow-on work.
+# Sync architecture contract
 
 ## Canonical model
 
-- **Canonical page content model:** `PageContentModel` in `src/lib/document-pages.ts`
-- **Canonical page identity:** `page.id`
-- **Canonical page metadata:** `page.title`, `page.mode`, `page.categoryIds`, `page.sortIndex`, and `page.metadata`
-- **Canonical document blocks:** `blocks` + `rootBlockIds`
-- **Stable content identity:** page, block, entity, relation, and asset ids are durable string ids and must never be derived from array position alone
+- `PageContentModel` is the canonical persisted content model for every page.
+- Page identity, page metadata, blocks, entities, relations, and assets all live inside that canonical model.
+- Lexical is a projection over canonical document blocks.
+- tldraw is still transitional and local-only today; its runtime is **not** yet the canonical shared canvas model.
 
-## Renderer projections
+## Ownership by domain
 
-### Document mode
+### Shared page metadata
 
-- **Renderer:** Lexical
-- **Projection module:** `src/lib/document-editor.ts`
-- **Current authority:** Lexical edits are reconciled into `PageContentModel`
-- **Current block identity rule:** top-level document blocks carry stable ids and reconciliation preserves ids, metadata, entity references, and extra block props for matched blocks
-- **Deletion rule:** removing a top-level Lexical block removes that canonical root block record; unrelated non-root block records are preserved
+The canonical page record owns:
 
-### Canvas mode
+- `id`
+- `title`
+- `mode`
+- `categoryIds`
+- `sortIndex`
+- page-level tags / pinning / custom fields / asset ids / grouping
 
-- **Renderer:** tldraw
-- **Current authority:** local tldraw persistence keyed by page id
-- **Status:** transitional; canvas state is not yet projected into `PageContentModel`
+### Collaborative page content
 
-## Persistence boundaries
+Document-mode body content is collaborative in realtime:
 
-- **Shared canonical page snapshot:** persisted with each document page through the document storage layer
-- **Workspace shell metadata:** currently local-only browser persistence
-- **Canvas scene state:** currently local-only browser persistence
-- **Collaboration transport:** Hocuspocus/Yjs session helpers exist in `src/lib/document.ts` and `src/lib/collection.ts`, but the current document editor surface is not yet mounted onto that runtime
+- top-level Lexical blocks projected into canonical `blocks`
+- canonical `rootBlockIds`
+- block metadata and entity ids for matched blocks
+- block relations that remain valid after reconciliation
 
-## Conflict and authority rules
+### Local-only today
 
-The app must behave deterministically when multiple persistence layers exist.
+These remain local browser state for now:
 
-### Implemented today
+- workspace title / subtitle
+- workspace mode labels and badges
+- category presentation metadata
+- tldraw page runtime state
+- theme and other UI preferences
 
-1. `PageContentModel` is the persisted canonical snapshot for document content.
-2. Lexical is a projection that reads from and writes back into that canonical snapshot.
-3. Local-only workspace shell and canvas state must not silently overwrite canonical document blocks.
+## Projection boundaries
 
-### Transitional gaps
+### Lexical ⇄ canonical content
 
-1. Active remote collaboration state is not yet the mounted runtime authority for document editing.
-2. Room seeding and remote-vs-local precedence are not yet enforced in the UI integration.
-3. Canvas content still lives outside the canonical model.
+- `src/lib/document-editor.ts` projects Lexical serialized top-level nodes into canonical blocks.
+- Stable block ids are never position-derived.
+- Matching uses deterministic reconciliation:
+  1. exact serialized block-id match when available
+  2. exact lexical-node fingerprint match
+  3. same-index same-type match for ordinary edits
+  4. structural same-type match when unique
 
-## Migration rules
+Matched blocks preserve:
 
-- Legacy positional block ids such as `lexical-block:0` are migrated to stable block ids on the next document reconciliation cycle.
-- Canonical block metadata is preserved for matched blocks during that migration.
-- Legacy markdown-only persisted fields are ignored during page normalization in favor of the canonical page model.
+- `id`
+- `entityIds`
+- `metadata`
+- surviving relation references
 
-## Versioning policy
+Deleted blocks are removed from `blocks` / `rootBlockIds`, and dangling relations are pruned.
 
-- `PAGE_CONTENT_SCHEMA_VERSION` tracks the stored `PageContentModel` schema version.
-- Normalization must remain backward-compatible with previously persisted data.
-- Future schema changes must add explicit migrations rather than relying on implicit runtime behavior.
+### Canvas ⇄ canonical content
 
-## Metadata ownership
+- Canvas is still transitional, but it is no longer completely outside the canonical model.
+- `src/lib/canvas-projection.ts` mirrors a tldraw store snapshot into a canonical `tldraw.snapshot` block.
+- The live runtime still uses tldraw local persistence keyed by page id.
+- When a canvas opens and the local runtime is empty, the canonical snapshot is used as a deterministic seed/checkpoint.
+- Document reconciliation preserves non-Lexical blocks, so switching renderers does not silently delete the stored canvas snapshot.
 
-- **Shared with the page model today:** title, mode, category ids, sort index, tags, pinning, grouping, custom fields, and asset ids
-- **Local-only today:** workspace shell branding and category presentation metadata
-- **Transitional:** canvas scene data and collaboration session state
+## Persistence boundaries and authority
 
-## Acceptance criteria for the current document sync seam
+Document collaboration uses this authority ladder:
 
-The current document projection is considered healthy when all of the following remain true:
+1. active Hocuspocus room state
+2. local `y-indexeddb` collaborative cache
+3. canonical `PageContentModel` snapshot used for deterministic seeding / recovery
+4. local browser storage never silently overwrites newer collaborative room state
 
-- block ids remain stable after ordinary text edits
-- block ids remain stable when top-level blocks reorder and the content can be matched deterministically
-- matched blocks keep metadata, entity ids, and extra props
-- deleted top-level blocks are removed cleanly
-- canonical content can reconstruct a Lexical editor state deterministically
-- repeated canonical → Lexical → canonical cycles do not drift
+Workspace shell persistence is intentionally separate from collaborative document content.
+
+## Collaboration lifecycle
+
+Document-mode editor behavior:
+
+- acquires a cached collaboration session on mount
+- connects Lexical to the session through `CollaborationPlugin`
+- tracks provider status and awareness count in the UI
+- releases the collaboration session on unmount / page switch
+
+## Room seeding rules
+
+When a document room opens:
+
+1. If the Yjs room already has content, use that content.
+2. If the room is empty and canonical content exists, bootstrap from canonical content once.
+3. A Yjs seed marker records that the room was seeded, so reopening the same empty room does not repeatedly reseed.
+
+## Conflict rules
+
+- Remote collaborative state wins over stale local browser snapshots.
+- Local canonical snapshots are only used to seed an empty room or recover when no collaborative state exists.
+- Canonical document content is updated from Lexical after local and remote collaborative changes settle into editor state.
+
+## Versioning and migrations
+
+- `src/lib/page-content-migrations.ts` owns canonical page-content migrations.
+- Current schema version: `2`.
+- Migration v2 replaces legacy positional block ids (`lexical-block:<index>`) with durable stable ids and rewrites dependent references.
+- Normalization always runs after migration.
+
+## Acceptance criteria implemented by this repo
+
+A document page is considered correctly synced when:
+
+- Lexical collaboration is active in document mode
+- empty rooms seed from canonical content exactly once
+- populated rooms are not clobbered by local snapshots
+- top-level document block ids remain stable through normal edits and reorder of unchanged blocks
+- block metadata survives ordinary edits
+- canonical content can reconstruct Lexical state deterministically
+- deleted blocks do not leave dangling canonical relations
+
+## Known transitional gaps
+
+- Canvas mode is not yet realtime collaborative
+- Workspace shell metadata is still local-only
+- Shared page metadata beyond the document body is persisted canonically but is not yet transported collaboratively through Yjs
