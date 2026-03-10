@@ -45,3 +45,34 @@ The system SHALL organize workspace pages through editable categories that prese
 - **GIVEN** a category has a custom label or icon metadata
 - **WHEN** the workspace reloads from local storage
 - **THEN** the category retains its saved presentation metadata
+
+### Requirement: Local workspace branding persistence
+The system SHALL allow local editing of workspace branding metadata and restore it from browser storage on reload.
+
+#### Scenario: Update workspace branding locally
+- **GIVEN** a user edits the workspace title, subtitle, or mode labels in the sidebar
+- **WHEN** the branding changes are saved
+- **THEN** the workspace shell and editor chrome show the updated branding metadata
+
+#### Scenario: Restore saved workspace branding on reload
+- **GIVEN** a workspace has saved branding metadata in local storage
+- **WHEN** the workspace reloads in the same browser
+- **THEN** the workspace restores the saved title, subtitle, and mode presentation labels
+
+#### Scenario: Normalize blank branding meta labels to defaults
+- **GIVEN** a user clears a mode sidebar meta label or badge label while editing workspace branding
+- **WHEN** the branding changes are saved
+- **THEN** the workspace restores the corresponding default label instead of persisting an empty UI label
+
+### Requirement: Local canvas runtime checkpoint recovery
+The system SHALL keep canvas-mode pages locally persistent while mirroring deterministic checkpoints into canonical page content.
+
+#### Scenario: Mirror local canvas edits into a canonical checkpoint
+- **GIVEN** a user edits a canvas-mode page
+- **WHEN** the tldraw runtime produces a debounced local save
+- **THEN** the page stores an updated canonical tldraw snapshot block in `PageContentModel`
+
+#### Scenario: Seed an empty local canvas from a canonical checkpoint
+- **GIVEN** a canvas-mode page has a canonical tldraw snapshot block and no local runtime state for that page id
+- **WHEN** the user opens the page
+- **THEN** the editor loads the canonical snapshot into the empty canvas runtime
